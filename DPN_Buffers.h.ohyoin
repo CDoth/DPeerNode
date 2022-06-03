@@ -1,0 +1,95 @@
+#ifndef DPN_BUFFERS_H
+#define DPN_BUFFERS_H
+#include <DArray.h>
+
+#include "__dpeernode_global.h"
+
+//================================================================
+class DPN_ExpandableBufferData {
+public:
+    friend class DPN_ExpandableBuffer;    
+public:
+    inline void reserve(int size) {__buffer.reformUp(size);}
+    inline void expand(int bytes) {__buffer.appendNs(bytes);}
+
+    void append(const void *data, int size);
+    inline void append(const DPN_ExpandableBufferData &b) { append(b.__buffer.constData(), b.__buffer.size()); }
+    inline void append(const DPN_ExpandableBufferData &b, int size) { append(b.__buffer.constData(), size); }
+    inline void appendString(const std::string &string) { append(string.data(), string.size()); }
+
+    inline void copy(const void *data, int size) {__buffer.copyData(reinterpret_cast<const uint8_t*>(data), size);}
+    inline void copy(const DPN_ExpandableBufferData &b) {__buffer.copyArray(b.__buffer);}
+    inline void copyString(const std::string &string, std::string::size_type size = 0) {copy(string.data(), size ? size : string.size());}
+
+    int readData(FILE *file, int size);
+    int writeData(FILE *file, int size) const;
+
+    inline void dropTo(int size) {__buffer.reformDown(size);}
+    inline void clear() {__buffer.drop();}
+public:
+    template <class T>
+    int appendValue(const T &value) {
+        __buffer.appendData(reinterpret_cast<const uint8_t*>(&value), sizeof(T));
+        return sizeof(T);
+    }
+private:
+    DArray<uint8_t> __buffer;
+};
+class DPN_ExpandableBuffer : public DWatcher<DPN_ExpandableBufferData> {
+public:
+    DPN_ExpandableBuffer() : DWatcher<DPN_ExpandableBufferData>(true) {}
+public:
+    inline void reserve(int size) { data()->reserve(size); }
+    inline void expand(int bytes) { data()->expand(bytes); }
+
+    inline void append(const void *__data, int size) { data()->append(__data, size); }
+    inline void append(const DPN_ExpandableBuffer &b) { data()->append(*b.data()); }
+    inline void append(const DPN_ExpandableBuffer &b, int size) { data()->append(*b.data(), size);}
+    inline void appendString(const std::string &string) { data()->appendString(string); }
+
+    inline void copy(const void *__data, int size) { data()->copy(__data, size); }
+    inline void copy(const DPN_ExpandableBuffer &b) { data()->copy(*b.data()); }
+    inline void copyString(const std::string &string, std::string::size_type size = 0) { data()->copyString(string, size); }
+
+    inline int readData(FILE *file, int size = 0) { return data()->readData(file, size); }
+    inline int writeData(FILE *file, int size) const { return data()->writeData(file, size); }
+
+
+
+    template <class T>
+    inline int appendValue(const T &value) {return data()->appendValue(value);}
+
+    inline void dropTo(int size) {data()->dropTo(size);}
+    inline void clear() {data()->clear();}
+    inline uint8_t * getData() {return data()->__buffer.changableData();}
+    inline const uint8_t * getData() const {return data()->__buffer.constData();}
+    inline const DArray<uint8_t> & buffer() const {return data()->__buffer;}
+
+    inline int size() const {return data()->__buffer.size();}
+    inline bool empty() const {return data()->__buffer.empty();}
+};
+//================================================================
+
+
+
+
+/*
+class DPN_BuffersPool {
+public:
+    DPN_BuffersPool() {
+        session_iterator = 0;
+    }
+
+    DPN_ExpandableBuffer & getBuffer();
+
+    void startSession() {session_iterator = 0;}
+    void endSession() {session_iterator = 0;}
+
+private:
+    DArray<DPN_ExpandableBuffer> pool;
+    int session_iterator;
+};
+*/
+
+
+#endif // DPN_BUFFERS_H
