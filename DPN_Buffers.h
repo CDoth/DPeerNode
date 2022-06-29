@@ -26,6 +26,8 @@ public:
 
     inline void dropTo(int size) {__buffer.reformDown(size);}
     inline void clear() {__buffer.drop();}
+
+    void print(int s = 0) const;
 public:
     template <class T>
     int appendValue(const T &value) {
@@ -67,11 +69,15 @@ public:
     inline const uint8_t * getData() const {return data()->__buffer.constData();}
     inline uint32_t * getData32() {return reinterpret_cast<uint32_t*>(data()->__buffer.changableData());}
     inline const uint32_t * getData32() const {return reinterpret_cast<const uint32_t*>(data()->__buffer.constData());}
+    inline uint64_t * getData64() {return reinterpret_cast<uint64_t*>(data()->__buffer.changableData());}
+    inline const uint64_t * getData64() const {return reinterpret_cast<const uint64_t*>(data()->__buffer.constData());}
 
     inline const DArray<uint8_t> & buffer() const {return data()->__buffer;}
 
     inline int size() const {return data()->__buffer.size();}
     inline bool empty() const {return data()->__buffer.empty();}
+
+    inline void print(int s = 0) const {data()->print(s);}
 };
 //================================================================
 

@@ -11,7 +11,7 @@ DPN_ThreadBridge::DPN_ThreadBridge() : DWatcher<DPN_ThreadBridgeData>(true)
 void DPN_ThreadBridge::clearPlan() {
     data()->clearPlan();
 }
-bool DPN_ThreadBridge::planDirection(DPN_Direction *d) {
+bool DPN_ThreadBridge::planDirection(DPN_ThreadUnit *d) {
     return data()->planDirection(d);
 }
 void DPN_ThreadBridge::replacePlaned() {
@@ -36,8 +36,6 @@ DPN_ThreadBridgeData::DPN_ThreadBridgeData() {
 
     process_tasks = false;
     acceptMode = NO_ACCEPT;
-
-    threadContext.alloc();
 }
 void DPN_ThreadBridgeData::accept() {
 
@@ -87,7 +85,7 @@ void DPN_ThreadBridgeData::setReplaceMode() {
     DPN_THREAD_GUARD(mutex);
     acceptMode = REPLACE;
 }
-bool DPN_ThreadBridgeData::planDirection(DPN_Direction *d) {
+bool DPN_ThreadBridgeData::planDirection(DPN_ThreadUnit *d) {
     if(d == nullptr) {
         DL_BADPOINTER(1, "direction");
         return false;
@@ -106,38 +104,6 @@ void DPN_ThreadBridgeData::clearPlan() {
     DPN_THREAD_GUARD(mutex);
     planed.clear();
 }
-void DPN_ThreadBridgeData::forceTask(DPN_Task *t) {
-    DPN_THREAD_GUARD(taskMutex);
-    tasks.push_back(t);
-}
-bool DPN_ThreadBridgeData::pushTask(DPN_Task *t) {
-
-    if( std::this_thread::get_id() == stdThreadId) {
-        return false;
-    }
-    DPN_THREAD_GUARD(taskMutex);
-    tasks.push_back(t);
-    return true;
-}
-void DPN_ThreadBridgeData::procTasks() {
-
-
-    DPN_Task *t = tasks.getActual();
-
-    if( t == nullptr ) return;
-
-    DPN_Result r = t->proc();
-    if( r == DPN_SUCCESS || r == DPN_FAIL ) {
-
-        DPN_THREAD_GUARD(taskMutex);
-        tasks.popActual();
-
-        if( t->isRemovable() ) {
-            delete t;
-        }
-    }
-
-}
 void DPN_ThreadBridgeData::procDirections() {
     accept();
 
@@ -145,72 +111,97 @@ void DPN_ThreadBridgeData::procDirections() {
 
 
     FOR_VALUE( accepted.size(), i ) {
-        auto d = accepted[i];
+        auto u = accepted[i];
 
-        if( d->isBlocked() ) {
+        if( u->isBlocked() ) {
 
-            DL_INFO(1, " >>>>>>>>> 0: proc leaving direction: [%p] i: [%d] size: [%d] client: [%p]",
-                    d, i, accepted.size(), d->clientContext.client());
-
-
-
+            DL_INFO(1, "Thread Unit [%p] blocked and leave thread: [%d:%p]", u, threadId, this);
             accepted.removeByIndex(i--);
-            d->inThread = false;
-            d->blocked = false;
+            u->inThread = false;
+            u->blocked = false;
 
-            if( d->clientContext.client() == nullptr ) {
-                DL_BADPOINTER(1, "client");
-            } else {
-                d->clientContext.client()->disconnect();
-            }
-
-            d->close();
+            u->threadKick();
+            u->close();
 
         } else {
-            if( d->proc() == false ) {
-                if(d->error() == DPN_Direction::CONNECTION_FAIL) {
+            if( u->unitProc() == false ) {
+                DL_INFO(1, "Thread Unit [%p] leave thread: [%d:%p]", u, threadId, this);
 
-                    DL_INFO(1, " >>>>>>>>> 1: proc leaving direction: [%p] i: [%d] size: [%d]",
-                            d, i, accepted.size());
-
-
-                    accepted.removeByIndex(i--);
-                    d->inThread = false;
-                    d->blocked = false;
-                    if( d->clientContext.client() == nullptr ) {
-                        DL_BADPOINTER(1, "client");
-                    } else {
-                        d->clientContext.client()->disconnect();
-                    }
-                }
+                accepted.removeByIndex(i--);
+                u->inThread = false;
+                u->blocked = false;
             }
         }
     }
 }
 void DPN_ThreadBridgeData::procSingle() {
 
-    auto d = singleDirection;
-    if(d->isBlocked()) {
-        singleDirection = nullptr;
-        d->inThread = false;
-        d->clientContext.client()->disconnect();
-    } else if( d->proc() == false ) {
-        if(d->error() == DPN_Direction::CONNECTION_FAIL) {
-            singleDirection = nullptr;
-            d->inThread = false;
-            d->clientContext.client()->disconnect();
-        }
-    }
+
 }
-bool DPN_ThreadBridgeData::__hold_direction(DPN_Direction *d) {
+bool DPN_ThreadBridgeData::__hold_direction(DPN_ThreadUnit *d) {
     if( d->threadInjection() == false ) {
         DL_ERROR(1, "Thread injection fault. direction: [%p]", d);
         return false;
     }
     accepted.push_back(d);
-
     d->inThread = true;
-    d->threadContext = threadContext;
-
     return true;
+}
+
+//============================================================
+
+void DPN_Thread::ThreadCore::accept() {
+
+
+//    if(acceptMode == NO_ACCEPT) {
+//        return;
+//    }
+
+//    switch (acceptMode) {
+//    case REPLACE:
+
+//        FOR_VALUE(accepted.size(), i) {
+//            accepted[i]->inThread = false;
+//        }
+//        accepted.clear();
+//        acceptMode = __KEEP_REPLACE;
+//        break;
+//    case __KEEP_REPLACE:
+//        FOR_VALUE(planed.size(), i) {
+
+
+//            DL_INFO(1, "direction: [%p] inThread: [%d]",
+//                    planed[i], bool(planed[i]->inThread)
+//                    );
+
+
+//            if( planed[i]->inThread == false ) {
+//                __hold_direction(planed[i]);
+//                planed.removeByIndex(i--);
+//            }
+//        }
+//        if(planed.empty()) {
+//            acceptMode = NO_ACCEPT;
+//        }
+//        break;
+//    default:break;
+//    }
+}
+
+void DPN_Thread::__thread_core__::run() {
+    accept();
+
+    if( aAccepted.empty() ) return;
+
+    FOR_VALUE( aAccepted.size(), i ) {
+        DPN_ThreadUnit *unit = aAccepted[i];
+
+        if( unit->isBlocked() || unit->unitProc() == false ) {
+            aAccepted.removeByIndex( i-- );
+            unit->kick();
+        }
+    }
+}
+void DPN_Thread::__thread_core__::accept() {
+
 }

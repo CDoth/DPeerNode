@@ -611,18 +611,7 @@ private:
         __tr::transport(pa.address, a...);
     }
 };
-template <>
-class dpn_mediator<DPN_ExpandableBuffer> {
-public:
-    static void save(const DPN_ExpandableBuffer &from, DPN_ExpandableBuffer &to) {
-        to.appendValue(from.size());
-        to.append(from);
-    }
-    static void upload(DPN_ExpandableBuffer &to, const DPN_ExpandableBuffer &from, int &p) {
-        to.copy(from);
-        p += from.size();
-    }
-};
+
 //----------------------------------------------------
 class __base_hl_item;
 class __transmit_content {
@@ -630,6 +619,7 @@ public:
     __transmit_content();
     void registerItem(__base_hl_item *pItem);
 
+    void setTotalSizeParsing(bool s);
     void clearBuffer();
     void clearItems();
     void clear();
@@ -638,7 +628,7 @@ public:
     bool deparseBuffer(const DPN_ExpandableBuffer &b);
     const DPN_ExpandableBuffer & buffer() const {return __buffer;}
     uint8_t * rawBuffer() {return __buffer.getData();}
-    void requestBuffer(int size);
+//    void requestBuffer(int size);
 
     void setPrefix(uint32_t v, int i);
     const uint32_t & prefix(int i) const;
@@ -649,6 +639,7 @@ private:
     DArray<__base_hl_item*> __content;
     DPN_ExpandableBuffer __buffer;
     uint8_t __prefix_size;
+    bool __parse_total_size;
 };
 class __base_hl_item {
 public:
@@ -660,6 +651,7 @@ public:
     inline uint8_t * data() {return __buffer.getData();}
     inline uint32_t * data32() {return reinterpret_cast<uint32_t*>(__buffer.getData());}
     void roughLoad(const uint8_t *d, int s);
+    inline void roughLoad(const DPN_ExpandableBuffer &b) {__buffer = b;}
     inline void reserve(int bytes) {__buffer.reserve(bytes);}
 
     inline void clearBuffer() { __buffer.clear(); }
@@ -736,226 +728,34 @@ public:
         return a;
     }
 };
+template <>
+class __hl_item<DPN_ExpandableBuffer> : public __base_hl_item {
+public:
+    __hl_item() {}
+    __hl_item(__transmit_content &content) : __base_hl_item(&content) {}
 
-
-
-static void __test() {
-
-    /*
-
-    //---------------------------------------------------------------------------------------------------
-    // STRING ARRAY
-    {
-//        __hl_item<DArray<std::string>> __i_stringArray;
-
-//        DArray<std::string> a_i(13);
-//        DArray<std::string> a_o;
-//        a_i.runIn([](std::string &v) {int r = rand() % 23 + 1; char c = 'a'; v.append(r, char(c+r));});
-//        a_i.runOut([](const std::string &v, int i){std::cout << i << " " << v.c_str() << std::endl; });
-
-//        __i_stringArray = a_i;
-//        a_o = __i_stringArray.get();
+    void operator=(const DPN_ExpandableBuffer &b) {
+        __buffer = b;
     }
-    //---------------------------------------------------------------------------------------------------
-    // COMPLEX 1
-    {
-        __hl_item<__complex1> __i_c1;
-
-        __complex1 c1;
-        c1.c = 'D';
-        c1.d = 943.0012;
-        c1.v = 654;
-        __complex1 c1_out;
-
-        __i_c1 = c1;
-        c1_out = __i_c1.get();
+    DPN_ExpandableBuffer get() const {
+        return __buffer;
     }
-    //---------------------------------------------------------------------------------------------------
-    // UINT8_T*
-    {
-        __hl_item<uint8_t*> __i_data;
-        int size = 14;
-        uint8_t * data = get_zmem<uint8_t>(size);
-        const uint8_t * const_out = nullptr;
-        int size_out = 0;
+};
 
-        FOR_VALUE(size, i) {
-            data[i] = rand();
-            std::cout << "data: " << data[i] << std::endl;
-        }
 
-        __i_data = __raw_data(data, size);
-        __raw_data rd = __i_data.getData();
-        const_out = (const uint8_t*)rd.d;
-        size_out = rd.s;
 
-        FOR_VALUE(size_out, i) {
-            std::cout << "const_out: " << const_out[i] << std::endl;
-        }
+class DPN_Content {
+public:
+    inline void setTotalSizeParsing(bool s) {content.setTotalSizeParsing(s);}
+    bool deparse(const DPN_ExpandableBuffer &buffer) {
+        return content.deparseBuffer(buffer);
     }
-    //---------------------------------------------------------------------------------------------------
-    // COMPLEX 2
-    {
-        __hl_item<__complex2> __item1;
-
-
-        __complex2 c2;
-        //-------------
-        c2.a.appendNs(15);
-        c2.a.runIn([](int &v) {v = rand() % 100;});
-        //-------------
-        c2.c = 'J';
-        //-------------
-        c2.d_s = 8;
-        c2.d = get_zmem<uint8_t>(c2.d_s);
-        FOR_VALUE(c2.d_s, i) c2.d[i] = rand() % 25 + 100;
-        //-------------
-        c2.f = 8543.456;
-        //-------------
-        c2.s = "Test string";
-        //-------------
-        c2.v = 55443;
-        //-------------
-        c2.str_a.appendNs(10);
-        c2.str_a.runIn([](std::string &v) {int r = rand() % 23 + 1; char c = 'a'; v.append(r, char(c+r));});
-        //-------------
-
-        std::cout << "in: "
-                 << " a: " << c2.a.size()
-                 << " c: " << c2.c
-                 << " d: " << c2.d_s
-                 << " f: " << c2.f
-                 << " s: [" << c2.s << "] "
-                 << " v: " << c2.v
-                 << " str a: " << c2.str_a.size()
-                    ;
-        std::cout << "Input Arrays:";
-        FOR_VALUE(c2.d_s, i) std::cout << c2.d[i]; std::cout << std::endl;
-        c2.a.runOut([](const int &v, int i){std::cout << i << " " << v; }); std::cout << std::endl;
-        c2.str_a.runOut([](const std::string &v, int i){std::cout << i << " " << v; }); std::cout << std::endl;
-
-
-
-
-        __item1 = c2;
-
-        __complex2 c2_out;
-        c2_out = __item1.get();
-
-        std::cout << "---- buffer:" << __item1.buffer().size();
-
-
-
-
-        std::cout << "in: "
-                 << " a: " << c2_out.a.size()
-                 << " c: " << c2_out.c
-                 << " d: " << c2_out.d_s
-                 << " f: " << c2_out.f
-                 << " s: [" << c2_out.s << "] "
-                 << " v: " << c2_out.v
-                 << " str a: " << c2_out.str_a.size()
-                    ;
-        std::cout << "Output Arrays:";
-        FOR_VALUE(c2_out.d_s, i) std::cout << c2_out.d[i]; std::cout << std::endl;
-        c2_out.a.runOut([](const int &v, int i){std::cout << i << " " << v; }); std::cout << std::endl;
-        c2_out.str_a.runOut([](const std::string &v, int i){std::cout  << i << " " << v.c_str(); }); std::cout << std::endl;
+    const DPN_ExpandableBuffer & parse() const {
+        content.parseBuffers();
+        return content.buffer();
     }
-    //---------------------------------------------------------------------------------------------------
-    {
-        __hl_item<__complex3> __item1;
-
-
-        __complex1 c1;
-        __complex2 c2;
-        //-------------
-        c2.a.appendNs(15);
-        c2.a.runIn([](int &v) {v = rand() % 100;});
-        //-------------
-        c2.c = 'J';
-        //-------------
-        c2.d_s = 8;
-        c2.d = get_zmem<uint8_t>(c2.d_s);
-        FOR_VALUE(c2.d_s, i) c2.d[i] = rand() % 25 + 100;
-        //-------------
-        c2.f = 85433.456;
-        //-------------
-        c2.s = "Test string";
-        //-------------
-        c2.v = 3232;
-        //-------------
-        c2.str_a.appendNs(10);
-        c2.str_a.runIn([](std::string &v) {int r = rand() % 23 + 1; char c = 'a'; v.append(r, char(c+r));});
-        //-------------
-        c1.c = 'L';
-        c1.d = 99.44;
-        c1.v = 9093;
-
-
-
-
-
-        __complex3 c3;
-        c3.d = 9933.222;
-        c3.v = 102;
-        c3.c1 = c1;
-        c3.c2 = c2;
-
-        std::cout << "in:"
-                 << "a:" << c3.c2.a.size()
-                 << "c:" << c3.c2.c
-                 << "d:" << c3.c2.d_s
-                 << "f:" << c3.c2.f
-                 << "s: [" << c3.c2.s.c_str() << "]"
-                 << "v:" << c3.c2.v
-                 << "str a:" << c3.c2.str_a.size()
-                 << "c1::c:" << c3.c1.c
-                 << "c1::d:" << c3.c1.d
-                 << "c1::v:" << c3.c1.v
-                 << "c3::d:" << c3.d
-                 << "c3::v:" << c3.v
-                 << std::endl;
-                    ;
-
-        std::cout << "Input Arrays:";
-        FOR_VALUE(c3.c2.d_s, i) std::cout << c3.c2.d[i]; std::cout << std::endl;
-        c3.c2.a.runOut([](const int &v, int i){std::cout << i << " " << v; });
-        c3.c2.str_a.runOut([](const std::string &v, int i){std::cout << i << " " << v.c_str(); });
-
-
-        __item1 = c3;
-
-        std::cout << "----buffer:" << __item1.buffer().size() << std::endl;
-
-        __complex3 c3_out;
-        c3_out = __item1.get();
-
-
-        std::cout << "out:"
-                 << "a:" << c3_out.c2.a.size()
-                 << "c:" << c3_out.c2.c
-                 << "d:" << c3_out.c2.d_s
-                 << "f:" << c3_out.c2.f
-                 << "s: [" << c3_out.c2.s.c_str() << "]"
-                 << "v:" << c3_out.c2.v
-                 << "str a:" << c3_out.c2.str_a.size()
-                 << "c1::c:" << c3_out.c1.c
-                 << "c1::d:" << c3_out.c1.d
-                 << "c1::v:" << c3_out.c1.v
-                 << "c3::d:" << c3_out.d
-                 << "c3::v:" << c3_out.v
-                 << std::endl
-                    ;
-
-        std::cout << "Output Arrays:" << std::endl;
-        FOR_VALUE(c3_out.c2.d_s, i) std::cout << c3_out.c2.d[i]; std::cout << std::endl;
-        c3_out.c2.a.runOut([](const int &v, int i){std::cout << i << " " << v; }); std::cout << std::endl;
-        c3_out.c2.str_a.runOut([](const std::string &v, int i){std::cout << i << " " << v.c_str(); }); std::cout << std::endl;
-    }
-
-*/
-
-}
-
+protected:
+    mutable __transmit_content content;
+};
 
 #endif // DPN_TRANSMITTOOLS_H

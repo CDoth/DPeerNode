@@ -1,28 +1,25 @@
 #ifndef DPN_CLIENTDATA_H
 #define DPN_CLIENTDATA_H
-#include "DPN_Direction.h"
+
 #include "DPN_Processors.h"
-#include "DPN_Channel.h"
+#include "DPN_ClientCore.h"
 
-#include "DPN_Modules.h"
 
-class DPN_BaseChannel {
-public:
-    DPN_BaseChannel();
-    void init(DPN_Channel *ch, DPN_ClientContext &cc);
-    void send(DPN_TransmitProcessor *p);
-    bool processing() const;
-private:
-    DPN_Channel *channel;
-    DPN_SendDirection *send_direction;
-    DPN_ReceiveDirection *recv_direction;
-};
+
+/*
 struct ShadowPermission {
     inline bool operator==(const std::string &__shadowKey) const {return shadowKey == __shadowKey;}
-    PeerAddress source;
-    PeerAddress target;
     std::string shadowKey;
 };
+struct ShadowRequest {
+    ShadowRequest() {
+        pShadowRequester = nullptr;
+    }
+    std::string shadowKey;
+    DPN_AbstractModule *pShadowRequester;
+    DPN_ExpandableBuffer wExtraData;
+};
+
 struct ClientInitContext {
 
     ClientInitContext() {
@@ -52,10 +49,31 @@ enum ClientState {
     ,DISCONNECTED
     ,DISCONNECTION_PROCESSING
 };
-//------------------------------------------------
 
-//------------------------------------------------
-class DPN_ClientData : public DPN_AbstractClient {
+class __q {
+public:
+    friend class __client_base_channel;
+    __q();
+    bool init(DPN_NodeConnector *c, DPN_DirectionType dt);
+private:
+    __io__base *pBase;
+    IO__CHANNEL *pChannel;
+    DPN_IO::IOPropagationScheme *pScheme;
+};
+class __client_base_channel {
+public:
+    __client_base_channel();
+    bool init(DPN_NodeConnector *c);
+    bool send(DPN_TransmitProcessor *p);
+private:
+    __q iForward;
+    __q iBackward;
+    __client_core1 *cc;
+};
+
+class DPN_ClientData
+//        : public DPN_AbstractClient
+{
 public:
     enum ClientEvent {
         CE__MAKE_SHADOW_CONNECTION
@@ -66,32 +84,35 @@ public:
     DPN_ClientData();
     DPN_ClientData(const ClientInitContext &initContext);
     ~DPN_ClientData();
+
+    bool send(DPN_TransmitProcessor *p);
     //------------------------------------------------------------------------ Virtual
-    bool disconnect() override;
-    inline const PeerAddress & localAddress() const override {return iLocal;}
-    inline const PeerAddress & remoteAddress() const override {return iRemote;}
-    inline const PeerAddress & avatar() const override {return iAvatar;}
-    void setEnvironment(const DArray<PeerAddress> &env) override;
+//    bool disconnect() override;
+//    inline const PeerAddress & localAddress() const override {return iLocal;}
+//    inline const PeerAddress & remoteAddress() const override {return iRemote;}
+//    inline const PeerAddress & avatar() const override {return iAvatar;}
+//    void setEnvironment(const DArray<PeerAddress> &env) override;
 
-    const std::string & getSessionKey() const override;
-    void verifyShadow(const PeerAddress &local, const PeerAddress &remote, const std::string &key) override;
-    void registerShadow(const PeerAddress &local, const PeerAddress &remote, const std::string &key) override;
-    DPN_Result checkShadowPermission
-    (const PeerAddress &source, const PeerAddress &target, const std::string &sessionKey, const std::string &shadowKey) const override;
-    bool addShadowConnection(const ClientInitContext &init) override;
-    DPN_Channel * channel(const std::string shadowKey) override;
+//    const std::string & getSessionKey() const override;
+//    void registerShadow(const std::string &key) override;
+//    DPN_Result checkShadowPermission(const std::string &sessionKey, const std::string &shadowKey) const override;
+//    bool addShadowConnection(const ClientInitContext &init) override;
+//    bool addShadowConnection(DPN_NodeConnector *udpPort, const std::string &shadowKey) override;
+//    IO__CHANNEL * channel(const std::string shadowKey) override;
 
-    inline DPN_TransactionMap & clientTransactions() override {return iClientTransactions;}
-    inline DPN_TransactionMap & generatedTransactions() override {return iGeneratedTransactions;}
 
-    void shadowConnectionServerAnswer(bool a, int port) override;
-    inline DPN_ClientContext context() override {return wClientContext;}
+//    void shadowConnectionServerAnswer(bool a, int port, const std::string &shadowKey) override;
+//    bool addShadowRequester(const std::string &shadowKey, DPN_AbstractModule *module, const DPN_ExpandableBuffer &extraData) override;
+//    inline DPN_ClientContext context() override {return wClientContext;}
+
+//    DPN_Result syncChannel(const std::string &shadowKey) override;
+//    inline void send(DPN_TransmitProcessor *p) override { iBaseChannel.send(p); }
     //----------------------------------------------------------------------
 
 //    template <class T> T * generateTransaction() {return wClientContext.core()->transactionMaster().generate<T>();}
 
     bool processing() const;
-    bool requestShadowConnection(int port = -1);
+    bool requestShadowConnection(DXT::Type type, int port = -1);
     void close();
     bool sendMessage(const char *m);
     bool ping();
@@ -99,15 +120,14 @@ public:
 
 
     ClientState state() const {return eState;}
-    inline const DArray<DPN_Channel*> & getChannels() const {return aChannels;}
-    DPN_Modules & modules() {return iModules;}
+    inline const DArray<IO__CHANNEL*> & getChannels() const {return aChannels;}
 
-    void addModule(const std::string &name, DPN_AbstractModule *module) { iModules.addModule(module, name); }
+//    DPN_Modules & modules() {return iModules;}
+//    void addModule(const std::string &name, DPN_AbstractModule *module) { iModules.addModule(module, name); }
 public:
-    template <DPN_PacketType t> inline typename DPN_ProcessorTransform<t>::proc_type processor(DPN_AbstractTransaction *transaction = nullptr)
-    { return wThreadContext.processor<t>(transaction); }
+//    template <DPN_PacketType t> inline typename DPN_ProcessorTransform<t>::proc_type processor()
+//    { return wThreadContext.processor<t>(); }
 
-    inline void send(DPN_TransmitProcessor *p) { iBaseChannel.send(p); }
 private:
     DPN_StateManager<ClientEvent> iStates;
 private:
@@ -119,37 +139,49 @@ private:
     bool iLocalVisible;
     DArray<PeerAddress> aEnvironment;
 private:
-    DPN_BaseChannel iBaseChannel;
-    DPN_ThreadContext wThreadContext;
+    __client_base_channel __base_channel;
+//    DPN_BaseChannel iBaseChannel;
     DPN_ClientContext wClientContext;
-    DPN_Modules iModules;
+//    DPN_Modules iModules;
 private:
-    DPN_Channel *pMainChannel;
-    DArray<DPN_Channel*> aChannels; //channels[0] == mainChannel == channels[0]
     DArray<ShadowPermission> aIncomingShadows;
+    DArray<ShadowRequest> aRequestedShadows;
     DArray<int> aOpenPorts;
     std::string iSessionKey;
 
-    DPN_TransactionMap iClientTransactions;
-    DPN_TransactionMap iGeneratedTransactions;
+//    DPN_TransactionSpace iClientTransactions;
+//    DPN_TransactionSpace iGeneratedTransactions;
 
 
-private:
-    DArray<DPN_UDPChannel*> UDPChannels;
-};
-/*
-class DPN_ProxyClientData {
-public:
-    DPN_ProxyClientData(DPN_NodeConnector *sourceNode, DPN_NodeConnector *targetNode);
-    ~DPN_ProxyClientData();
+    IO__CHANNEL *pMainChannel;
+    DArray<IO__CHANNEL*> aChannels;
 
-    bool processing() const;
-private:
-    DPN_ProxyDirection *proxy__src2trt;
-    DPN_ProxyDirection *proxy__trt2src;
+    std::mutex iClientMutex;
 
+    // base channel
+    // shadow channels
+    // environment
+    // stats (name, address, open ports)
 };
 */
 
+
+
+class DPN_ClientInterface : private DWatcher<DPN_ClientCore> {
+public:
+    DPN_ClientInterface( );
+    DPN_ClientInterface( const DPN_Thread::ThreadUser &sharing, DPN_NodeConnector *c );
+    bool init(DPN_NodeConnector *c );
+    void setModules( DPN_Modules modules );
+
+    const DPN_ClientTag * tag() const;
+    const DArray<__channel> & channels() const;
+    const DArray<DPN_ThreadUnit*> & threadUnits() const;
+    void sendMessage(const char *m);
+    void makeShadowConnection(DXT::Type);
+    bool send(DPN_TransmitProcessor *cp);
+
+    DWatcher<DPN_ClientCore> & watcher() { return *this; }
+};
 
 #endif // DPN_CLIENTDATA_H

@@ -456,11 +456,15 @@ void __base_hl_item::roughLoad(const uint8_t *d, int s) {
 }
 __transmit_content::__transmit_content() {
     __prefix_size = 0;
+    __parse_total_size = true;
 //    DL_INFO(1, "Create: [%p]", this);
 }
 void __transmit_content::registerItem(__base_hl_item *pItem) {
 //    DL_INFO(1, "Register: item: [%p] content: [%p]", pItem, this);
     __content.push_back(pItem);
+}
+void __transmit_content::setTotalSizeParsing(bool s) {
+    __parse_total_size = s;
 }
 void __transmit_content::clearBuffer() {
     __buffer.clear();
@@ -479,7 +483,7 @@ void __transmit_content::parseBuffers() {
 
     __buffer.clear();
 
-    __buffer.appendValue<uint32_t>(0); //size
+    if( __parse_total_size ) __buffer.appendValue<uint32_t>(0); //size
     int size = 0;
 
     FOR_VALUE(__prefix_size, i) {
@@ -506,17 +510,15 @@ void __transmit_content::parseBuffers() {
 
 //    DL_INFO(1, "content: [%d] size: [%d]", __content.size(), size);
 
-    int *pSize = reinterpret_cast<int*>(__buffer.getData());
-    if( pSize == nullptr ) {
-        DL_BADPOINTER(1, "pSize");
-        return;
+    if( __parse_total_size ) {
+        int *pSize = reinterpret_cast<int*>(__buffer.getData());
+        if( pSize == nullptr ) {
+            DL_BADPOINTER(1, "pSize");
+            return;
+        }
+        *pSize = size;
     }
-    *pSize = size;
 
-//    DL_INFO(1, "Packet size: [%d]", size);
-//    FOR_VALUE(__buffer.size(), i) {
-//        DL_INFO(1, "[%d]", (int)(__buffer.getData()[i]));
-//    }
 }
 
 bool __transmit_content::deparseBuffer() {
@@ -539,9 +541,6 @@ bool __transmit_content::deparseBuffer(const DPN_ExpandableBuffer &eb) {
 //    DL_INFO(1, "buffer: [%d] content: [%d]",
 //            eb.size(), __content.size());
 
-//    FOR_VALUE(eb.size(), i) {
-//        DL_INFO(1, "[%d]", (int)(eb.getData()[i]));
-//    }
 
     // Minimum buffer size: 4 bytes of single item size (can be 0)
     if(bufferSize < 4) {
@@ -569,7 +568,9 @@ bool __transmit_content::deparseBuffer(const DPN_ExpandableBuffer &eb) {
             DL_ERROR(1, "Invalid buffer size: [%d] p: [%d] item size: [%d]", bufferSize, p, itemSize);
             goto deparse_fail;
         }
-//        DL_INFO(1, "item: [%p] size: [%d] p: [%d] i: [%d]", __content[i], itemSize, p, i);
+//        DL_INFO(1, "item: [%p] size: [%d] p: [%d] i: [%d] buffer size: [%d] sum: [%d]",
+//                __content[i], itemSize, p, i, bufferSize, (p + (int)sizeof(int) + itemSize));
+
         p += sizeof(int);
         __content[i]->roughLoad(b + p, itemSize);
         p += itemSize;
@@ -594,10 +595,10 @@ deparse_fail:
     return false;
 }
 
-void __transmit_content::requestBuffer(int size) {
-    __buffer.clear();
-    __buffer.reserve(size);
-}
+//void __transmit_content::requestBuffer(int size) {
+//    __buffer.clear();
+//    __buffer.reserve(size);
+//}
 void __transmit_content::setPrefix(uint32_t v, int i) {
     if(__buffer.size() < (int)(sizeof(uint32_t) * (i+1)) ) {
         DL_ERROR(1, "buffer size too less [%d]", __buffer.size());
@@ -608,5 +609,7 @@ void __transmit_content::setPrefix(uint32_t v, int i) {
 const uint32_t &__transmit_content::prefix(int i) const {
     return reinterpret_cast<const uint32_t*>(__buffer.getData())[1 + i];
 }
+
+
 
 

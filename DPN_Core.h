@@ -22,8 +22,7 @@ public:
     bool sendMessage(const char *message);
     bool videoCall();
 
-    DPN_Client & client(int index);
-    DPN_MediaSystem &media();
+//    DPN_MediaSystem &media();
 
     void acceptAll();
 public:
@@ -35,7 +34,7 @@ public:
 
     //File module:
 public:
-    DPN_Catalog & catalog() {return connections_core.host_catalog;}
+    DPN_Catalog *catalog();
     bool sync();
     bool requestRemoteFile(int key);
     bool requestRemoteFileSet(const DArray<int> &keys);

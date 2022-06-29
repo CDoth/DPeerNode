@@ -2,6 +2,7 @@
 #include "DPN_FileSystemProcessors.h"
 
 using namespace DPeerNodeSpace;
+/*
 DPN_RequestNote::DPN_RequestNote() {
     direciton = NO_DIRECTION;
     done = false;
@@ -20,17 +21,25 @@ DPN_FileSystem::DPN_FileSystem() : DPN_AbstractModule("FileSystem"), remote_cata
 }
 DPN_FileSystem::~DPN_FileSystem() {
 
-//    DL_INFO(1, "1DELETE FILE SYSTEM: [%p]", this);
+    //    DL_INFO(1, "1DELETE FILE SYSTEM: [%p]", this);
+}
+bool DPN_FileSystem::activateChannel(DPN_DuplexChannel *c, DPN_DirectionType dt, const DPN_ExpandableBuffer &extra) {
+
+}
+
+void DPN_FileSystem::channelActived(DPN_DuplexChannel *c, DPN_DirectionType dt)
+{
+
 }
 void DPN_FileSystem::setHostCatalog(DPN_Catalog *catalog) {
     host_catalog = catalog;
 }
-bool DPN_FileSystem::reserveShadowSender(DPN_Channel *channel, int transaction) {
-    return reserveSender(channel);
-}
-bool DPN_FileSystem::reserveShadowReceiver(DPN_Channel *channel, const DPN_ExpandableBuffer &extra, int transaction) {
-    return reserveReceiver(channel);
-}
+//bool DPN_FileSystem::reserveShadowSender(DPN_Channel *channel, int transaction) {
+//    return reserveSender(channel);
+//}
+//bool DPN_FileSystem::reserveShadowReceiver(DPN_Channel *channel, const DPN_ExpandableBuffer &extra, int transaction) {
+//    return reserveReceiver(channel);
+//}
 void DPN_FileSystem::clientDisconnected(const DPN_AbstractClient *client) {
 
 }
@@ -374,97 +383,32 @@ bool DPN_FileSystem::send(const DArray<DFileKey> &keyset) {
 }
 bool DPN_FileSystem::unsreserveSender(const std::string &shadowKey) {
 
-    FOR_VALUE( specials.size(), i ) {
+//    FOR_VALUE( specials.size(), i ) {
 
-        if( specials[i]->checkKey(shadowKey) ) {
-            specials[i]->unreserveForward();
-            break;
-        }
-    }
+//        if( specials[i]->checkKey(shadowKey) ) {
+//            specials[i]->unreserveForward();
+//            break;
+//        }
+//    }
     return true;
 }
 bool DPN_FileSystem::unsreserveReceiver(const std::string &shadowKey) {
 
-    FOR_VALUE( specials.size(), i ) {
+//    FOR_VALUE( specials.size(), i ) {
 
-        if( specials[i]->checkKey(shadowKey) ) {
-            specials[i]->unreserveBack();
-            break;
-        }
-    }
+//        if( specials[i]->checkKey(shadowKey) ) {
+//            specials[i]->unreserveBack();
+//            break;
+//        }
+//    }
     return true;
 }
-bool DPN_FileSystem::reserveSender(DPN_Channel *ch) {
 
-    if( ch == nullptr ) {
-        DL_BADPOINTER(1, "Channel");
-        return false;
-    }
-    if( ch->isForwardReserved() ) {
-        DL_ERROR(1, "Receive direction already reserved");
-        return false;
-    }
-    bool contained = false;
-    FOR_VALUE( specials.size(), i ) {
-        if( specials[i] == ch ) {
-            contained = true;
-            break;
-        }
-    }
-    DPN_FileSendDirection *d = new DPN_FileSendDirection;
-    d->pFileSystem = this;
-    d->pConnector = ch->connector();
-
-    if( ch->reserveForward(d) == false ) {
-        DL_FUNCFAIL(1, "reserveBack");
-        return false;
-    }
-    if( !contained ) {
-        specials.push_back(ch);
-    }
-    send_directions.push_back(d);
-
-    return true;
-}
-bool DPN_FileSystem::reserveReceiver(DPN_Channel *ch) {
-
-    if( ch == nullptr ) {
-        DL_BADPOINTER(1, "Channel");
-        return false;
-    }
-    if( ch->isBackReserved() ) {
-        DL_ERROR(1, "Receive direction already reserved");
-        return false;
-    }
-    bool contained = false;
-    FOR_VALUE( specials.size(), i ) {
-        if( specials[i] == ch ) {
-            contained = true;
-            break;
-        }
-    }
-
-    DPN_FileReceiveDirection *d = new DPN_FileReceiveDirection;
-    d->pFileSystem = this;
-    d->pConnector = ch->connector();
-
-    if( ch->reserveBack(d) == false ) {
-        DL_FUNCFAIL(1, "reserveBack");
-        return false;
-    }
-    if( !contained ) {
-        specials.push_back(ch);
-    }
-
-
-
-    return true;
-}
 bool DPN_FileSystem::hasSpecialChannels() const {
 
-    FOR_VALUE( specials.size(), i ) {
-        if( specials[i]->isForwardReserved() ) return true;
-    }
+//    FOR_VALUE( specials.size(), i ) {
+//        if( specials[i]->isForwardReserved() ) return true;
+//    }
     return false;
 }
 bool DPN_FileSystem::bindRemoteNote(int local_note, int remote_note) {
@@ -723,6 +667,329 @@ bool DPN_FileReceiveDirection::proc() {
     return true;
 }
 
+*/
 
 
 
+//============================================================================================================ IO__FILE
+/*
+bool IO__FILE::receive(FileTransport *file) {
+
+    FileSlice *slice = new FileSlice;
+    slice->init( file->descriptor() );
+    iReceiveMap[file->descriptor().key()] = slice;
+    slice->openW();
+    return true;
+}
+bool IO__FILE::send(FileTransport *file) {
+
+    FileMap &map = file->fileMap();
+
+    FOR_VALUE( map.size(), i ) {
+        FileSlice *slice = new FileSlice;
+        slice->init( file->descriptor().path(), map[i] );
+        aSession.append( slice );
+    }
+    return true;
+}
+DPN_Result IO__FILE::generate(DPN_ExpandableBuffer &b) {
+
+    FileSlice *current = __get_slice();
+    if( current == nullptr ) {
+        DL_BADPOINTER(1, "no file slice");
+        return DPN_FAIL;
+    }
+    int rb = current->read();
+//    setSource( current->buffer(), rb );
+
+    return DPN_SUCCESS;
+}
+DPN_Result IO__FILE::process(DPN_ExpandableBuffer &b) {
+//    const DPN_ExpandableBuffer &b = constBuffer();
+    const FilePacketHeader *header = reinterpret_cast<const FilePacketHeader*>(b.getData());
+
+    FileSlice *current = iReceiveMap[header->key];
+    if( current == nullptr ) {
+        DL_ERROR(1, "No file slice with key: [%d]", header->key);
+        return DPN_FAIL;
+    }
+    current->write( b );
+    return DPN_SUCCESS;
+}
+FileSlice *IO__FILE::__get_slice() {
+
+}
+*/
+
+DPN_Catalog __global__host_catalog = DPN_Catalog("Host Catalog");
+
+bool DPN_FileSystem::useChannel(const DPN_ClientTag *tag, dpn_direction direction, __channel_mono_interface mono, const DPN_ExpandableBuffer &context) {
+
+    DL_INFO(1, "tag: [%p] direction: [%d]", tag, direction);
+
+    if( iClientsData.find( tag ) == iClientsData.end() ) {
+        iClientsData[ tag ] = DPN_FileSystemDescriptor( );
+    }
+
+    DPN_FileSystemPrivateInterface i;
+    DPN_FileSystemDescriptor &desc = iClientsData[ tag ];
+    auto w = im.get( tag, desc );
+    i.move( w );
+
+    return i.addChannel( mono, direction, context );
+}
+DPN_FileSystem::DPN_FileSystem(const std::string &name) : DPN_AbstractModule(name) {
+
+    __global__host_catalog.createLinearFileSystem();
+
+    DL_INFO(1, "Create file module: [%p]", this);
+}
+DPN_Catalog &DPN_FileSystem::host() {
+    return __global__host_catalog;
+}
+DPN_FileSystemInterface DPN_FileSystem::getIf(DPN_ClientInterface &clientIf) {
+    DPN_FileSystemInterface i;
+
+
+
+    DL_INFO(1, "client core: [%p]", clientIf.watcher().data() );
+
+    if( iClientsData.find( clientIf.tag() ) == iClientsData.end() ) {
+        iClientsData[clientIf.tag()] = DPN_FileSystemDescriptor( clientIf.watcher() );
+    }
+
+    DPN_FileSystemDescriptor &d = iClientsData[clientIf.tag()];
+    if( d.isClientBound() == false ) {
+        d.bind( clientIf.watcher() );
+    }
+    auto w = im.get( clientIf.tag(), d );
+    i.move( w );
+    return i;
+}
+DPN_FileSystemPrivateInterface DPN_FileSystem::getPrivateIf(const DPN_ClientTag *clientTag) {
+
+    DPN_FileSystemPrivateInterface i;
+
+    if( iClientsData.find( clientTag ) == iClientsData.end() ) {
+        iClientsData[ clientTag ] = DPN_FileSystemDescriptor( );
+    }
+
+    DPN_FileSystemDescriptor &d = iClientsData[clientTag];
+    auto w = imPrivite.get( clientTag, d );
+    i.move( w );
+    return i;
+}
+bool DPN_FileSystem::compareCatalogHash(const std::string &hash) const {
+    std::string host_hash = __global__host_catalog.getHash();
+    bool status = bool(host_hash == hash);
+    return status;
+}
+bool DPN_FileSystemInterface::sync() {
+    if( badInterface() ) {
+        DL_ERROR(1, "Bad interface");
+        return false;
+    }
+
+    auto proc = DPN_PROCS::processor<DPN_PACKETTYPE__SYNC_CATALOGS>();
+//    DL_INFO(1, "Create sync processor [%p]", proc);
+    return inner()->fs__send( proc );
+}
+const DPN_Catalog *DPN_FileSystemInterface::remote() const {
+    if( badInterface() ) {
+        DL_ERROR(1, "Bad interface");
+        return nullptr;
+    }
+    return &inner()->iRemoteCatalog;
+}
+bool DPN_FileSystemInterface::requestFileset(const DArray<int> &keyset) {
+    if( badInterface() ) {
+        DL_ERROR(1, "Bad interface");
+        return false;
+    }
+
+    auto proc = DPN_PROCS::processor<DPN_PACKETTYPE__REQUEST_FILE>();
+    proc->setFileset( keyset );
+    return inner()->fs__send( proc );
+}
+DPN_FileSystem *extractFileModule(DPN_Modules &modules) { return reinterpret_cast<DPN_FileSystem*>(modules.module("FileSystem")); }
+
+DPN_Catalog *DPN_FileSystemPrivateInterface::remote() {
+    if( badInterface() ) {
+        DL_ERROR(1, "Bad interface");
+        return nullptr;
+    }
+    return &inner()->iRemoteCatalog;
+}
+DFile DPN_FileSystemPrivateInterface::remoteFile(int key) const {
+    if( badInterface() ) {
+        DL_ERROR(1, "Bad interface");
+        return DFile();
+    }
+    return inner()->iRemoteCatalog.constFile( key );
+}
+void DPN_FileSystemPrivateInterface::unverifyRemote2Host() {
+    if( badInterface() ) return;
+    inner()->iStateRemote2Host = false;
+}
+void DPN_FileSystemPrivateInterface::unverifyHost2Remote() {
+    if( badInterface() ) return;
+    inner()->iStateHost2Remote = false;
+}
+bool DPN_FileSystemPrivateInterface::verifyHost2Remote(bool status) {
+    if( badInterface() ) {
+        DL_ERROR(1, "Bad interface");
+        return false;
+    }
+
+    return inner()->iStateHost2Remote = status;
+}
+bool DPN_FileSystemPrivateInterface::verifyRemote2Host(bool status) {
+    inner()->iStateRemote2Host = status;
+    return status;
+}
+DPN_FILESYSTEM::Interface DPN_FileSystemPrivateInterface::request(CallerPosition p, int key) {
+    DPN_FILESYSTEM::Interface i;
+
+    if( badInterface() ) {
+        DL_ERROR(1, "Bad interface");
+        return i;
+    }
+
+    if( p == DPN_HOST ) {
+
+        if( inner()->iDownloadPath.empty() ) {
+            inner()->iDownloadPath = "F:/DFS_SPACE/DOWNLOAD/";
+        }
+
+        DFile f = inner()->iRemoteCatalog.file( key );
+        f.createAbsolutePath( inner()->iDownloadPath );
+        DPN_FILESYSTEM::Descriptor fd(f);
+        inner()->iHostRequest.append( fd );
+        auto w = inner()->__host_interface.get( key, fd );
+        i.move( w );
+
+//        DL_INFO(1, "file: [%d] path: [%s] vpath: [%s] name: [%s] size: [%d] badfile: [%d]",
+//                key, f.path_c(), f.vpath_c(),
+//                f.name_c(), f.size(),
+//                BADFILE(f)
+//                );
+
+    } else {
+        DFile f = __global__host_catalog.file( key );
+        DPN_FILESYSTEM::Descriptor fd(f);
+        inner()->iServerRequest.append( fd );
+        auto w = inner()->__server_interface.get( key, fd );
+        i.move( w );
+
+    }
+
+    return i;
+}
+bool DPN_FileSystemPrivateInterface::send(DPN_FILESYSTEM::Interface fileIf) {
+
+    if( badInterface() ) {
+        DL_ERROR(1, "Bad interface");
+        return false;
+    }
+    if( inner()->aOutgoingChannels.empty() ) {
+        DL_ERROR(1, "No channels");
+        return false;
+    }
+    FOR_VALUE( inner()->iServerRequest.size(), i ) {
+        if( inner()->iServerRequest[i] == fileIf) {
+            break;
+        }
+        DL_ERROR(1, "No interface in server request");
+        return false;
+    }
+    DPN_FILESYSTEM::FileMap m = fileIf.fileMap();
+
+    DL_INFO(1, "Try send file...");
+    std::cout << DPN_FILESYSTEM::filemap2text( m ) << std::endl;
+
+    FOR_VALUE( m.size(), mi ) {
+        DPN_FILESYSTEM::Channel *pickedChannel = &inner()->aOutgoingChannels[0];
+        int minLoad = inner()->aOutgoingChannels[0].load();
+
+        FOR_VALUE( inner()->aOutgoingChannels.size(), i ) {
+
+            if(  inner()->aOutgoingChannels[i].load() < minLoad ) {
+                pickedChannel = &inner()->aOutgoingChannels[i];
+                minLoad = inner()->aOutgoingChannels[i].load();
+            }
+
+        }
+        DL_INFO(1, "picked channel: [%p] file: [%s] block: [%d-%d]",
+                pickedChannel, fileIf.file().name_c(), m[mi].begin(), m[mi].end() );
+
+        if( pickedChannel ) {
+
+            pickedChannel->send( DPN_FILESYSTEM::Slice( fileIf.file(), m[mi] ) );
+        }
+    }
+    return true;
+}
+bool DPN_FileSystemPrivateInterface::receive(DPN_FILESYSTEM::Interface fileIf) {
+
+    if( badInterface() ) {
+        DL_ERROR(1, "Bad interface");
+        return false;
+    }
+    if( inner()->aIncomingChannels.empty() ) {
+        DL_ERROR(1, "No incoming channels");
+        return false;
+    }
+    FOR_VALUE( inner()->iHostRequest.size(), i ) {
+        if( inner()->iServerRequest[i] == fileIf) {
+            break;
+        }
+        DL_ERROR(1, "No interface in host request");
+        return false;
+    }
+
+    if( inner()->putReceivingFile( fileIf.file() ) == false ) {
+        DL_FUNCFAIL(1, "putReceivingFile");
+        return false;
+    }
+
+    return true;
+}
+bool DPN_FileSystemPrivateInterface::addChannel(__channel_mono_interface mono, dpn_direction direction, const DPN_ExpandableBuffer &context) {
+
+    if( badInterface() ) {
+        DL_ERROR(1, "Bad interface");
+        return false;
+    }
+    if( mono.badInterface() ) {
+        DL_ERROR(1, "Bad mono channel interface");
+        return false;
+    }
+
+    DPN_FILESYSTEM::Channel channel( *inner(), mono, context);
+    if( direction == DPN_FORWARD ) {
+        inner()->aOutgoingChannels.append( channel );
+    } else {
+        inner()->aIncomingChannels.append( channel );
+    }
+
+//    inner()->fs__activateChannel( channel );
+
+    return true;
+}
+bool DPN_FileSystemData::fs__send( DPN_TransmitProcessor *p ) {
+    if( DWatcher<DPN_ClientCore>::isEmptyObject() ) {
+        DL_ERROR(1, "Empty watcher");
+        return false;
+    }
+    if( DWatcher<DPN_ClientCore>::data() == nullptr ) {
+        DL_BADPOINTER(1, "data");
+        return false;
+    }
+    DL_INFO(1, "send proc: [%p] data: [%p]", p, DWatcher<DPN_ClientCore>::data());
+    return DWatcher<DPN_ClientCore>::data()->send( p );
+}
+bool DPN_FileSystemData::fs__activateChannel(DPN_FILESYSTEM::Channel ch) {
+
+    DWatcher<DPN_ClientCore>::data()->putThreadUnit( ch.threadUnit() );
+    return true;
+}

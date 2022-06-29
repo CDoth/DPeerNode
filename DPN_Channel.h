@@ -1,109 +1,101 @@
 #ifndef DPN_CHANNEL_H
 #define DPN_CHANNEL_H
-#include "DPN_Direction.h"
 
-// DPN_ChannelRole
-/*
-enum DPN_ChannelRole {
 
-    DPN_CHANNEL__NO_ROLE
-    ,DPN_CHANNEL__MAIN
-    ,DPN_CHANNEL__MONOPOLAR
-    ,DPN_CHANNEL__MONOPOLAR_BACKLOG
-    ,DPN_CHANNEL__MONOPOLAR_STRICT
+
+#include "DPN_IO.h"
+#include "DPN_NodeConnector.h"
+
+enum MonoChannelState {
+    MS__RAW,
+    MS__BOUND,
+    MS__ACTIVE,
+    MS__REQUESTING
 };
-*/
-
-class DPN_Channel {
+class MonoChannel {
 public:
-    DPN_Channel();
-
-    void init(DPN_NodeConnector *connector,
-              bool initiator,
-              PeerAddress avatar,
-              DPN_Channel *mainChannel,
-              const std::string &shadowKey
-              );
-
-    void stop();
-public:
-    bool reserve(DPN_Direction *f, DPN_Direction *b);
-    bool reserveForward(DPN_Direction *f);
-    bool reserveBack(DPN_Direction *b);
-    DPN_Direction * unreserveForward();
-    DPN_Direction * unreserveBack();
-public:
-    inline DPN_NodeConnector * connector() {return __connector;}
-    inline DPN_Direction * forwardDirection() {return __forward;}
-    inline DPN_Direction * backDirection() {return __back;}
-    inline DPN_Direction * direction(int getForward) {return getForward ? __forward : __back;}
-public:
-    inline bool isInitiator() const {return __isInitiator;}
-    inline bool checkKey(const std::string &shadowKey) const {return __shadowKey == shadowKey;}
-    inline const std::string & shadowKey() const {return __shadowKey;}
-
-    inline const PeerAddress & local() const {return __local;}
-    inline const PeerAddress & remote() const {return __remote;}
-    inline const PeerAddress & avatar() const {return __avatar;}
-
-    inline bool isForwardReserved() const {return __forward;}
-    inline bool isBackReserved() const {return __back;}
-    inline bool isFowardFree() const {return __forward == nullptr;}
-    inline bool isBackFree() const {return __back == nullptr;}
+    friend class __channel;
+    friend class __channel_private_interface;
+    MonoChannel();
+    bool reserve( DPN_AbstractModule *module, const DPN_ExpandableBuffer &context );
 private:
-    void __clear_ptrs();
-private:
-    std::string __shadowKey;
-    PeerAddress __local;
-    PeerAddress __remote;
-    PeerAddress __avatar;
-    bool __isInitiator;
-    DPN_TimeMoment __startMoment;
-
-    DPN_NodeConnector *__connector;
-    DPN_Channel *__mainChannel;
-    DPN_Direction *__forward;
-    DPN_Direction *__back;
-
-
-    /*
-     * > Main channel:
-     * Both directions for base transmiting:
-     * commands, info or specific modules packets
-     *
-     * > Duplex channel:
-     * Both directions has same role and using
-     * for specific (one-role) transmiting:
-     * special data such as streams
-     *
-     * > Monopolar channel:
-     * One direction has specific role and using
-     * for specific-role transmiting,
-     * other direction has no role and free for using and could
-     * be registered for any role
-     *
-     * > Monopolar back-info channel:
-     * Both directions has same role but
-     * one direction using for specific-role transmiting, and
-     * other direction registered for backlog or info
-     * for this role
-     *
-     * > Monopolar strict channel:
-     * One direction has specific role and using
-     * for specific-role transmiting,
-     * other direction blocked for any roles
-     * and transmitings
-    */
+    DPN_AbstractModule *pModule;
+    DPN_ExpandableBuffer wSettings;
+    dpn_direction iDirectionType;
+    MonoChannelState iLocalState;
+    MonoChannelState iRemoteState;
 };
-DPN_Channel * pickForwardFree(const DArray<DPN_Channel*> &channels);
-class DPN_UDPChannel {
+class IO__CHANNEL : public DPN_IO::IOContext {
 public:
-    DPN_UDPChannel();
-    int peerPort() const;
+    IO__CHANNEL(DPN_NodeConnector *c);
+    bool init(DPN_NodeConnector *connector);
 private:
-    DPN_Direction *__forward;
-    DPN_Direction *__back;
-    DXT socket;
+    bool checkGenerator() const override;
+    bool checkProcessor() const override;
+    DPN_Result generatorStart() override;
+    DPN_Result processorStart() override;
+    DPN_Result generate(DPN_ExpandableBuffer &b) override;
+    DPN_Result process(DPN_ExpandableBuffer &b) override;
+
+private:
+    DPN_NodeConnector *pConnector;
+    DPN_ExpandableBuffer wBuffer;
 };
+class __channel_data {
+public:
+    friend class __channel;
+    friend class __channel_mono_interface;
+    friend class __channel_private_interface;
+    __channel_data();
+    ~__channel_data();
+    bool init( DPN_NodeConnector *c, const std::string &shadowKey );
+    inline bool inited() const {return iKey.size();}
+    bool reserve( DPN_AbstractModule *m, const DPN_ExpandableBuffer &context );
+
+    inline bool checkKey(const std::string &shadowKey) const {return iKey.size() && iKey == shadowKey;}
+    inline const std::string &key() const {return iKey;}
+private:
+    std::string iKey;
+    IO__CHANNEL *pChannel;
+private:
+    MonoChannel iForward;
+    MonoChannel iBackward;
+};
+class __channel_mono_interface : public __dpn_acc_interface<dpn_direction, __channel_data> {
+public:
+    __channel_mono_interface() {}
+    inline DPN_IO::IOContext * io() {return validInterface() ? inner()->pChannel : nullptr;}
+};
+class __channel_private_interface : public __dpn_interface< __channel_data > {
+public:
+    void setLocalState( dpn_direction d, MonoChannelState s );
+    void setRemoteState( dpn_direction d, MonoChannelState s );
+};
+class __channel : private DWatcher<__channel_data> {
+public:
+    __channel();
+    inline bool isValid() const { return this->isCreatedObject(); }
+
+    bool init(DPN_NodeConnector *c, const std::string &shadowKey);
+    __channel_mono_interface getMonoIf( dpn_direction d );
+    __channel_private_interface privateInterface();
+public:
+    MonoChannelState localState( dpn_direction d ) const;
+    MonoChannelState remoteState( dpn_direction d ) const;
+    std::string shadowKey() const;
+private:
+    __interface_map<dpn_direction, __channel_data> monoIf;
+    __interface_master<__channel_data> privateIf;
+};
+//===================================
+
+
+
+
+
+
+
+
+
 
 #endif // DPN_CHANNEL_H

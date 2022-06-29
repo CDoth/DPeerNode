@@ -21,42 +21,33 @@
 
 enum DPN_PacketType {
     DPN_PACKETTYPE__NO_TYPE = 0
-    ,DPN_PACKETTYPE__TEXT_MESSAGE
-    ,DPN_PACKETTYPE__SYNC
-    ,DPN_PACKETTYPE__HASH_SUM
 
 
-    ,DPN_PACKETTYPE__REGISTER_FAST_FILE
-
-    ,DPN_PACKETTYPE__TRANSMIT_ANSWER
-
-    ,DPN_PACKETTYPE__USER_TYPE
     //--------------------------------
-    /// >>> HOST(SEND) SIDE:
-    /// - Calculate hashsum
-    /// - Prepare file to send (open or load it), check pointers and buffers
-    /// >>> REMOTE(RECEIVE) SIDE:
-    /// - Get hashsum and check it
-    /// - Create necessary directories and files, open all files
-    /// - Send to host [DPN_PACKETTYPE__FILE_RECEIVE_READY_ANSWER]
-    ,DPN_PACKETTYPE__FILE_TRANSMIT_PREPARE
+    ,DPN_PACKETTYPE__TEXT_MESSAGE
+    ,DPN_PACKETTYPE__MAKE_SHADOW_CONNECTION
+    ,DPN_PACKETTYPE__SYNC_CHANNEL
+    ,DPN_PACKETTYPE__RESERVE_CHANNEL
+    //--------------------------------
 
+    ,DPN_PACKETTYPE__SYNC_CATALOGS
+    ,DPN_PACKETTYPE__REGISTER_FAST_FILE
+    //--------------------------------
 
     /// Remote node request file or file set from host catalog:
     ,DPN_PACKETTYPE__REQUEST_FILE
 
     /// Transmit file data:
     ,DPN_PACKETTYPE__FILE_PACKET
-//    ,DPN_PACKETTYPE__RESERVE_FILE_CHANNEL
     //--------------------------------
     ,DPN_PACKETTYPE__MEDIA_ANSWER
     ,DPN_PACKETTYPE__MEDIA_STREAM_PREPARE
     //--------------------------------
     ,DPN_PACKETTYPE__PING
-    ,DPN_PACKETTYPE__REQUEST
     ,DPN_PACKETTYPE__LOCAL_ENVIRONMENT
     //--------------------------------
-    ,DPN_PACKETTYPE__MAKE_SHADOW_CONNECTION
+
+
     //--------------------------------
     ,DPN_PACKETTYPE__INVALID_TYPE
 

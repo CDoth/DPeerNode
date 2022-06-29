@@ -1,7 +1,7 @@
 #ifndef DPN_DATASTREAM_H
 #define DPN_DATASTREAM_H
 
-
+/*
 #include "DPN_Channel.h"
 // 1. direct window
 // 2. cross-thread window
@@ -10,10 +10,7 @@
 class DPN_DataStream;
 class DPN_DataChannel {
 
-    /*
-     * 1. Key or keyless channel
-     * 2. Main, shadow or UDP channel
-    */
+
 
 
 public:
@@ -36,8 +33,7 @@ protected:
     PacketType ePacketType;
     ConnectionType eConnectionType;
     ChannelType eChannelType;
-    DPN_NodeConnector *pShadowConnector;
-    DPN_UDPPort *pDataPort;
+    DPN_NodeConnector *pConnector;
     DPN_Result iLastResult;
 public:
 //    virtual bool dataReady() const {return true;};
@@ -89,55 +85,45 @@ private:
     DArray<DataMessage> aReceivedDataQueue;
 };
 
-class DPN_DataDirection : public DPN_Direction {
-public:
-    bool close() override {return true;}
-    void setChannel(DPN_DataChannel *c) {pChannel = c;}
-protected:
-    DPN_DataChannel *pChannel;
-};
-class DPN_DataSendDirection : public DPN_DataDirection {
-public:
-    bool proc() override;
-};
-class DPN_DataReceiveDirection : public DPN_DataDirection {
-public:
-    bool proc() override;
-};
+*/
 
-///
-/// \brief The DPN_DataStream class
-/// Client unique instance
-class DPN_DataStream : public DPN_AbstractModule {
-public:
-    DPN_DataStream();
 
-    bool reserveShadowReceiver(DPN_Channel *channel, const DPN_ExpandableBuffer &extra, int transaction) override;
-    bool reserveShadowSender(DPN_Channel *channel, int transaction) override;
 
-    void clientDisconnected(const DPN_AbstractClient *client) override;
-    void stop() override;
-private:
-    DArray<DPN_DataChannel*> aDataChannels;
-    DPN_AbstractClient *pClient;
-};
 
-class DPN_DataStreamTransaction : public DPN_AbstractTransaction {
-public:
-    DPN_DataStreamTransaction();
-    enum TransactionSubtype {
-        NoType,
-        ChannelReserving
-    };
 
-public:
-    DPN_DataChannel::PacketType ePacketType;
-    DPN_DataChannel::ChannelType eChannelType;
-    DPN_DataChannel::ConnectionType eConnectionType;
-    TransactionSubtype iSubtype;
+/*
+ * Input:
+ * callback (callback, base)
+ * queue
+ * file (file path, window size, auto/handle mode)
+ * mem (ptr, size, window size, auto/handle mode)
+ * alien udp (local port, peer port, settings)
+ * dpn udp (incoming udp channel, settings)
+ * tcp (incoming shadow channel, settings)
+ * other stream (stream, settings)
+ *
+ *
+ * Output:
+ * callback
+ * queue
+ * file
+ * mem
+ * alien udp
+ * dpn udp
+ * tcp
+ * other stream
+*/
 
-private:
 
-};
+
+
+
+
+
+
+
+
+
+
 
 #endif // DPN_DATASTREAM_H

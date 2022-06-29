@@ -8,14 +8,14 @@ enum DPN_VideoAnswerType {
     DVS__STREAM_RECEIVE_PREPARING
 };
 
-class DPN_MediaProcessor : public DPN_TransmitProcessor {
-public:
-    DPN_MediaProcessor();
-private:
-    void postInition() override;
-protected:
-    DPN_MediaSystem *pMediaSystem;
-};
+//class DPN_MediaProcessor : public DPN_TransmitProcessor {
+//public:
+//    DPN_MediaProcessor();
+//private:
+//    void postInition() override;
+//protected:
+//    DPN_MediaSystem *pMediaSystem;
+//};
 //class DPN_Processor__media_answer : public DPN_MediaProcessor {
 //public:
 //    DPN_PROCESSOR
@@ -41,20 +41,25 @@ protected:
 
 //};
 
-class DPN_Processor__media_stream_prepare;
-class __transaction : public DPN_AbstractTransaction {
-public:
-    typedef __action_line<DPN_Processor__media_stream_prepare> ActionLine;
-    inline ActionLine & actionLine() {return iLine;}
-    DPN_MediaType type() const {return iType;}
-    MediaContextSet & contextSet() {return iContextSet;}
+//class DPN_Processor__media_stream_prepare;
+//class __transaction : public DPN_AbstractTransaction {
+//public:
+//    typedef __action_line<DPN_Processor__media_stream_prepare> ActionLine;
+//    __transaction() {
+//        iPort = 0;
+//    }
+//    inline ActionLine & actionLine() {return iLine;}
+//    DPN_MediaType type() const {return iType;}
+//    MediaContextSet & contextSet() {return iContextSet;}
 
-    DPN_MediaType iType;
-private:
-    ActionLine iLine;
-    MediaContextSet iContextSet;
-};
+//    DPN_MediaType iType;
+//    int iPort;
+//private:
+//    ActionLine iLine;
+//    MediaContextSet iContextSet;
+//};
 
+/*
 class DPN_Processor__media_stream_prepare : public DPN_MediaProcessor {
 public:
     DPN_PROCESSOR
@@ -76,6 +81,7 @@ public:
 
 private:
     DPN_Result sendPrefix() override;
+    DPN_Result receivePrefix() override;
     DPN_Result receiveReaction() override;
 
     DPN_Result failureProcessing() override;
@@ -117,7 +123,6 @@ private:
     DPN_Result hostRun();
     DPN_Result serverRun();
 
-
     // faults:
     DPN_Result hostFault();
     DPN_Result serverFault();
@@ -136,10 +141,12 @@ private:
 
     UNIT(std::string) UNIT_FAULT_DETAILS = content;
 };
+*/
 
 //DPN_PROCESSOR_BIND(DPN_Processor__media_answer, DPN_PACKETTYPE__MEDIA_ANSWER);
-DPN_PROCESSOR_BIND(DPN_Processor__media_stream_prepare, DPN_PACKETTYPE__MEDIA_STREAM_PREPARE);
+//DPN_PROCESSOR_BIND(DPN_Processor__media_stream_prepare, DPN_PACKETTYPE__MEDIA_STREAM_PREPARE);
 
 
 #endif // DPN_MEDIASYSTEMPROCESSORS_H
+
 

@@ -5,20 +5,14 @@
 
 
 #include "DPN_ThreadBridge.h"
-#include "DPN_Client.h"
-
-#include "DPN_FileClient.h"
-#include "DPN_MediaClient.h"
-#include "DPN_DataClient.h"
+#include "DPN_Modules.h"
+#include "DPN_ModulesIncluder.h"
 
 
 
 //====================================================================================================== DPN_SharedPort
 class DPN_SharedPort {
 public:
-    enum Type {
-
-    };
     DPN_SharedPort();
     DPN_SharedPort(int port, bool autoaccepting);
 public:
@@ -34,28 +28,29 @@ public:
 
     CheckResult check(DPN_NodeConnector *c);
 
-    bool isAuto() const {return __autoaccepting;}
-    int port() const {return __port;}
-    std::string address() const {return __connector ? __connector->localAddress() : std::string("No address");}
+    bool isAuto() const {return iAutoaccepting;}
+    int port() const {return iPort;}
+    std::string address() const {return pConnector ? pConnector->localAddress() : std::string("No address");}
 public:
     bool isOpen() const;
     bool open();
 private:
     void clear();
 private:
-    int __port;
-    int __new_connection_timeout;
-    bool __autoaccepting;
-    DPN_NodeConnector *__connector;
+    int iPort;
+    int iTimeout;
+    bool iAutoaccepting;
+    DPN_NodeConnector *pConnector;
 private:
-    DArray<PeerAddress> __white_list;
-    DArray<PeerAddress> __black_list;
-    int __maximum;
-    int __connections_counter;
+    DArray<PeerAddress> aWhiteList;
+    DArray<PeerAddress> aBlackList;
+    int iMaximum;
+    int iConnections;
 private:
-    bool __open;
+    bool iOpened;
 };
 //======================================================================================================
+/*
 enum ConnectionState {
     WAIT
     ,ACCEPT
@@ -72,8 +67,7 @@ public:
     DPN_PeerMeeting();
     DPN_Result meet();
     void init(MeetInfo *__mi, DPN_NodeConnector *c);
-    void attachToClient(DPN_AbstractClient *client);
-
+//    void attachToClient(DPN_AbstractClient *client);
 private:
     DPN_Result send_prepare();
     DPN_Result send();
@@ -84,9 +78,9 @@ private:
 
 private:
     DPN_NodeConnector *connector;
-    DPN_AbstractClient *baseClient;
+//    DPN_AbstractClient *baseClient;
     MeetInfo *mi;
-    DPN_AbstractConnectionsCore *core;
+//    DPN_AbstractConnectionsCore *core;
 private:
     __transmit_content content;
     UNIT(std::string) UNIT_NAME = content;
@@ -94,25 +88,22 @@ private:
 private:
     __action_line<DPN_PeerMeeting> line;
 };
-
 class DPN_WaitingConnection {
 public:
     DPN_WaitingConnection();
     virtual ~DPN_WaitingConnection();
     DPN_Result process();
     void setName(const std::string &__name);
-    void setCore(DPN_AbstractConnectionsCore *__core);
     void close();
     bool isShadow() const;
-    DPN_AbstractClient *baseClient();
+//    DPN_AbstractClient *baseClient();
     ConnectionState finalState() const {return state;}
-    ClientInitContext clientContext();
+//    ClientInitContext clientContext();
     const DPN_NodeConnector * connector() const {return pConnector;}
     const std::string & name() const {return mi.sr_name;}
 protected:
     virtual DPN_Result prepare() = 0;
     std::string generateSessionKey();
-    std::string generateShadowKey();
 private:
     void makeLine();
     DPN_Result meetInit();
@@ -132,13 +123,12 @@ protected:
     UNIT(bool) UNIT_VISIBLE = answer_content;
 
 protected:
-    DPN_AbstractClient *base;
-    DPN_AbstractConnectionsCore *core;
+//    DPN_AbstractClient *base;
     DPN_PeerMeeting meeting;
     DPN_NodeConnector *pConnector;
     std::atomic<ConnectionState> state;
     MeetInfo mi;
-    ClientInitContext initConext;
+//    ClientInitContext initConext;
 };
 class DPN_IncomingConnection : public DPN_WaitingConnection {
 public:
@@ -169,9 +159,11 @@ private:
 class DPN_OutgoingConnection : public DPN_WaitingConnection {
 public:
     DPN_OutgoingConnection(const char *address, int port);
-    DPN_OutgoingConnection(DPN_AbstractClient *client, int port);
+//    DPN_OutgoingConnection(DPN_AbstractClient *client, int port);
     ~DPN_OutgoingConnection();
+    void setShadowKey(const std::string &shadowKey);
     void setAttempts(int a);
+    void setChannelRequester(DPN_AbstractModule *m);
 protected:
     DPN_Result prepare() override;
     DPN_Result wait() override;
@@ -191,6 +183,7 @@ private:
     void makeDialogLine();
     void clear();
 private:
+    DPN_AbstractModule *pChannelRequester;
     int serverSignal;
     __action_line<DPN_OutgoingConnection> dialogLine;
     PeerAddress connectTarget;
@@ -199,55 +192,140 @@ private:
     int attempts_counter;
     int max_attempts;
 };
+*/
+
+
+
+namespace Connections {
+
+// use wrapper objects instead pointers
+// signal as hashsum
+    enum ConnectionState {
+        WAIT
+        ,ACCEPT
+        ,REJECT
+        ,ATTACH
+    };
+    class WaitingConnection {
+    public:
+        WaitingConnection();
+        virtual ~WaitingConnection();
+        DPN_NodeConnector * connector() {return pConnector;}
+        virtual DPN_Result process() = 0;
+        inline ConnectionState state() const {return iState;};
+        void close();
+        bool isShadow() const;
+        inline const std::string & remoteName() const {return iRemoteName;}
+        inline const std::string & localName() const {return iLocalName;}
+    protected:
+        DPN_Result innerMeeting();
+        DPN_Result sendPacket();
+        DPN_Result receivePacket();
+        void setLocalName( const std::string &name );
+        void makeMeetLine();
+    private:
+        DPN_Result meetPresend();
+        DPN_Result meetSend();
+        DPN_Result meetPrereceive();
+        DPN_Result meetReceive();
+        DPN_Result meetEnding();
+    private:
+        __transmit_content iMeetContent;
+        UNIT(std::string) UNIT_MEET_NAME = iMeetContent;
+        UNIT(PeerAddress) UNIT_MEET_ATTACH = iMeetContent;
+        __action_line<WaitingConnection> iMeetingLine;
+
+        std::string iLocalName;
+        std::string iRemoteName;
+        PeerAddress iAttachAddress;
+    protected:
+        std::atomic<ConnectionState> iState;
+        DPN_NodeConnector *pConnector;
+        __transmit_content iMainContent;
+        UNIT(std::string) UNIT_SIGNAL = iMainContent;
+        UNIT(std::string) UNIT_SESSION_KEY = iMainContent;
+        UNIT(std::string) UNIT_SHADOW_KEY = iMainContent;
+        UNIT(PeerAddress) UNIT_AVATAR = iMainContent;
+        UNIT(bool) UNIT_VISIBLE = iMainContent;
+    };
+    class OutgoingConnection : public WaitingConnection {
+    public:
+        OutgoingConnection( const std::string &localName, const PeerAddress &address );
+        DPN_Result process() override;
+    private:
+        DPN_Result connecting();
+        DPN_Result waiting();
+        DPN_Result dialog();
+        DPN_Result ending();
+    private:
+        // Host (outgoing) dialog: receive (signal) -> send (main content) -> receive (answer)
+        DPN_Result dialog__clear();
+        DPN_Result dialog__process_signal();
+        DPN_Result dialog__end();
+        void makeDialogLine();
+        void makeMainLine();
+    private:
+        __action_line<OutgoingConnection> iActionLine;
+        __action_line<OutgoingConnection> iDialogLine;
+
+        PeerAddress iConnectionAddress;
+        int iConnectionAttepmts;
+        int iConnectionMaximumAttemps;
+    };
+    class IncomingConnection : public WaitingConnection {
+    public:
+        IncomingConnection( const std::string &localName, DPN_NodeConnector *connector );
+        DPN_Result process() override;
+        void accept();
+        void reject();
+    private:
+        DPN_Result waiting();
+        DPN_Result dialog();
+        DPN_Result ending();
+    private:
+        // Server (incoming) dialog: send (signal) -> receive (main content) -> send (answer)
+        DPN_Result dialog__clear();
+        DPN_Result dialog__make_signal();
+        DPN_Result dialog__make_answer();
+        void makeDialogLine();
+        void makeMainLine();
+    private:
+        __action_line<IncomingConnection> iActionLine;
+        __action_line<IncomingConnection> iDialogLine;
+
+    };
+    OutgoingConnection * createOutgoingConnection( const std::string &localName, const PeerAddress &a );
+    IncomingConnection * createIncomingConnection( const std::string &localName, DPN_NodeConnector *c );
+}
+
 //======================================================================================================
-class DPN_ConnectionsCore : public DPN_AbstractConnectionsCore {
+class DPN_ConnectionsCore  {
 public:
     friend class DPN_ThreadMaster;
     friend class DPN_Core;
 
     DPN_ConnectionsCore();
-
-    //-------------------------------------------------------------------------------------- Virtual:
-    void toEachClient(DPN_ClientSystemMessage m, DPN_AbstractClient *source) override;
-    void pushTask(DPN_Task *t) override;
-
-    bool isShadowAvailable(DPN_AbstractClient *client, int port) override;
-    void shadowConnection(DPN_AbstractClient *client, int port) override;
-    DPN_AbstractClient *client(const PeerAddress &pa) override;
-    DPN_UDPPort * openUDPPort(int port) override;
-
-    void replanDirections() override;
-    void addGlobalDirection(DPN_Direction *d) override;
-    void disconnect(DPN_AbstractClient *c) override;
-    DArray<PeerAddress> getEnvironment() const override;
-    //--------------------------------------------------------------------------------------
-
     void renewCatalog();
 
     bool processIncomingConnections();
     bool processOutgoingConnections();
 
-    DPN_Client & client(int index) {
-        if(index >= 0 && index < remotes.size())
-            return remotes[index];
-    }
 
 
     void threadOver(DPN_ThreadBridge &bridge) {__remove_thread(bridge);}
 
     inline const DArray<DPN_SharedPort> & sharedPorts() const {return openPorts;}
-    inline const DArray<DPN_Client> & clients() const {return remotes;}
-    inline const DArray<DPN_Client> & disconnectedClients() const {return aDisconnectedClients;}
-    inline const DArray<DPN_IncomingConnection*> & incomingConnections() const {return incs;}
-    inline const DArray<DPN_OutgoingConnection*> & outgoingConnections() const {return outs;}
-    inline const DArray<DPN_ThreadBridge> & threads() const {return tbs;}
+    inline const DArray<DPN_ClientInterface> & clients() const {return remotes;}
+//    inline const DArray<DPN_ClientInterface> & disconnectedClients() const {return aDisconnectedClients;}
+//    inline const DArray<DPN_IncomingConnection*> & incomingConnections() const {return incs;}
+//    inline const DArray<DPN_OutgoingConnection*> & outgoingConnections() const {return outs;}
     inline const DPN_SimplePtrList<DPN_Task> & tasks() const {return __tasks;}
 
 
-    inline int threadsNumber() const { return tbs.size(); }
 private:
 
-    bool __processConnection(DPN_WaitingConnection *connection);
+    bool __processConnection(Connections::WaitingConnection *connection);
+    bool __addClient( DPN_NodeConnector *c);
     void setName(const std::string &n) {name = n;}
     const std::string &getName() const {return name;}
 
@@ -262,14 +340,14 @@ private:
     void disconnectAll();
 private:
     bool __open_udp_port(int port);
-    bool __add_client(const ClientInitContext &c);
+//    bool __add_client(const ClientInitContext &c);
     bool __add_shadow();
 private:
     bool __push_bad_inc(DPN_NodeConnector *connector, DPN_SharedPort::CheckResult r);
     bool __push_inc(DPN_NodeConnector *connector);
     bool __add_thread(DPN_ThreadBridge &bridge);
     bool __remove_thread(DPN_ThreadBridge &bridge);
-    bool __remove_client(DPN_Client &client);
+//    bool __remove_client(DPN_Client &client);
     bool __set_threads(const DArray<DPN_ThreadBridge> &set);
 
 private:
@@ -282,33 +360,22 @@ private:
     std::mutex __mutex;
     std::string name;
     DPN_SimplePtrList<DPN_Task> __tasks;
-    DArray<DPN_ThreadBridge> tbs;
+//    DArray<DPN_ThreadBridge> tbs;
 private:
-    DArray<DPN_IncomingConnection*> incs;
-    DArray<DPN_OutgoingConnection*> outs;
+    DArray<Connections::IncomingConnection*> aIncs;
+    DArray<Connections::OutgoingConnection*> aOuts;
 private:
     DArray<DPN_SharedPort> openPorts;
-    DArray<DPN_UDPPort*> udpPorts;
-
-    DArray<DPN_Client> remotes;
-    DArray<DPN_Client> aDisconnectedClients;
-private:
-    DPN_ThreadContext userThreadContext;
+    DArray<DPN_ClientInterface> remotes;
+//    DArray<DPN_Client> aDisconnectedClients;
 private:
     DArray<uint64_t> random;
-
+    DArray<int> aUdpAvailablePorts;
 private:
-// modules:
-    DArray<DPN_Direction*> aGlobalDirections;
-    // file system:
-    DPN_Catalog host_catalog;
-    // media system:
-//    DPN_MediaSystem iGlobalMediaSystem;
-
-//    DPN_TransactionMaster iTransactionMaster;
-    //------------------------------- external:
-//    DArray<DPN_AbstractModule*> aGlobalModules;
     DPN_Modules iGlobalModules;
+private:
+    DPN_Thread::ThreadsLine iThreadLine;
+    DPN_Thread::ThreadUser iThreadUser;
 };
 
 #endif // DPN_CONNECTIONSCORE_H

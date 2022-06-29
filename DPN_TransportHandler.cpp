@@ -1,7 +1,9 @@
 #include "DPN_TransportHandler.h"
 #include "__dpeernode_global.h"
-using namespace DPeerNodeSpace;
 
+#include "DPN_Channel.h"
+using namespace DPeerNodeSpace;
+/*
 DPN_FileSlice::DPN_FileSlice() {
     __clear();
 }
@@ -364,7 +366,7 @@ void DPN_FileTransportHandler::clear() {
     __file_map.clear();
     __main_slice = nullptr;
 }
-
+*/
 
 /*
 bool DPN_FileTransportHandler::openW() {
@@ -603,6 +605,7 @@ bool DPN_FileTransportGroup::transportIt(int bytes) {
 }
 */
 //------------------------------------------------------------------------ DPN_FileSessionManager:
+/*
 bool DPN_FileSessionManager::stopSend(const DArray<int> &keyset) {
 
     FOR_VALUE(keyset.size(), i) {
@@ -644,7 +647,7 @@ DPN_FileTransportHandler *DPN_FileSessionManager::__insert_handler2(int key, con
 
     return nullptr;
 }
-DPN_FileTransportHandler *DPN_FileSessionManager::__get_handler(int key, const DPN_FileSessionManager::transport_map_t &map) const  {
+DPN_FileSessionManager::transport_t DPN_FileSessionManager::__get_handler(int key, const DPN_FileSessionManager::transport_map_t &map) const  {
 
 
     auto f = map.find(key);
@@ -672,7 +675,7 @@ DPN_FileUploadTask::DPN_FileUploadTask() {
     __file = nullptr;
     __read_now = 0;
     __read = 0;
-    __status = DPN_KEEP;
+    __status = DPN_REPEAT;
 }
 DPN_Result DPN_FileUploadTask::proc() {
 
@@ -683,5 +686,555 @@ DPN_Result DPN_FileUploadTask::proc() {
     __status = DPN_SUCCESS;
     return DPN_SUCCESS;
 }
+*/
+//===============================================================
 
+/*
+namespace DPN_FSPerephery {
+
+FileSlice::FileSlice()
+{
+
+}
+
+int FileSlice::read() {
+        return __read_instant();
+    }
+    int FileSlice::write(const DPN_ExpandableBuffer &b) {
+        if( b.size() < (int)sizeof(FilePacketHeader) + 1) {
+            DL_BADVALUE(1, "buffer size: [%d]", b.size());
+            return -1;
+        }
+        const FilePacketHeader *header = reinterpret_cast<const FilePacketHeader*>(b.getData());
+        if( header->size < 1 || header->size > (b.size() - (int)sizeof(FilePacketHeader)) ) {
+            DL_BADVALUE(1, "packet size: [%d] buffer size: [%d]", header->size, b.size());
+            return -1;
+        }
+        if( header->position > iStart || header->position + header->size > iStart + iSize ) {
+            DL_BADVALUE(1, "position: [%d] size: [%d] file: start: [%d] size: [%d]",
+                        header->position, header->size, iStart, iSize);
+            return -1;
+        }
+        if( pFile == nullptr ) {
+            DL_BADPOINTER(1, "file");
+            return -1;
+        }
+        const void *data = header + 1;
+        fseek( pFile, header->position, SEEK_SET );
+        op__load_last = fwrite( data, 1, header->size, pFile );
+        return op__load_last;
+    }
+    bool FileSlice::init(const DFile &file) {
+        iPath = file.path();
+        iStart = 0;
+        iSize = file.size();
+        return true;
+    }
+    bool FileSlice::init(const std::string &path, const FileBlock &block) {
+        iPath = path;
+        iStart = block.iStart;
+        iSize = block.iSize;
+        return true;
+    }
+    bool FileSlice::openW() {
+        if( pFile ) {
+            DL_ERROR(1, "File already open");
+            return false;
+        }
+        if( (pFile = fopen(iPath.c_str(), "a+b")) == nullptr ) {
+            return false;
+        }
+        return true;
+    }
+    bool FileSlice::openR() {
+        pFile = fopen(iPath.c_str(), "rb");
+        fseek( pFile, iStart, SEEK_SET );
+        return true;
+    }
+    int FileSlice::__read_instant() {
+
+        if( iReadWindow == 0 ) return 0;
+
+        int read_now = (size_t)iReadWindow > op__bytes_left ? op__bytes_left : iReadWindow;
+
+        wInnerBuffer.dropTo( sizeof(FilePacketHeader) );
+        op__load_last = wInnerBuffer.readData( pFile, read_now );
+        FilePacketHeader *h = reinterpret_cast<FilePacketHeader*>(wInnerBuffer.getData());
+        h->size = op__load_last;
+        h->key = iFileKey;
+        h->position = iStart + op__load_total;
+
+        op__bytes_left -= op__load_last;
+        op__load_total += op__load_last;
+        return op__load_last;
+    }
+    int FileSlice::__read_buffering() {
+        return 0;
+    }
+    int FileSlice::__read_thread_buffering() {
+        return 0;
+    }
+
+    static thread_local DPN_ExpandableBuffer __global_file_buffer;
+#define GLOBAL_BUFFER_START_SIZE (1024 * 1024)
+
+    std::string createMetaPath(const std::string &filePath) {
+        std::string metaFilePath = filePath;
+        path_cut_last_section(metaFilePath);
+        std::string name = path_get_last_section(filePath);
+        name.insert(0, "~dpn_meta~");
+        metaFilePath.append( name );
+        return  metaFilePath;
+    }
+    bool writeFileMap(const std::string &filePath, const FileMap &map) {
+        std::string metaFilePath = createMetaPath( filePath );
+        FILE *mf = nullptr;
+        if( (mf = fopen( metaFilePath.c_str(), "wb")) == nullptr ) {
+            DL_ERROR(1, "Can't create meta file for file: [%s]", filePath.c_str());
+            return false;
+        }
+
+        __hl_item<FileMap> i;
+        i = map;
+
+        fwrite( i.buffer().getData(), 1, i.buffer().size(), mf );
+
+        return true;
+    }
+    bool readFileMap(const std::string &filePath, FileMap &map) {
+        std::string metaFilePath = createMetaPath( filePath );
+
+        size_t s = get_file_size( metaFilePath );
+        if( s == 0 ) {
+            return false;
+        }
+        FILE *mf = fopen( metaFilePath.c_str(), "rb");
+
+        DPN_ExpandableBuffer b;
+        b.readData( mf, s );
+
+        __hl_item<FileMap> i;
+        i.roughLoad( b );
+        map = i.get();
+
+        return true;
+    }
+    inline bool __is_zero_block(const uint64_t *data, int data_size) {
+        auto e = data + data_size;
+        while( data != e ) if( *data++ ) return false;
+        return true;
+    }
+    FileBlock __find_zero_block(const uint8_t *data, int data_size, int minimum) {
+//        if( data == nullptr || data_size < 1 || block_size < 1 ) {
+
+//            DL_BADVALUE(1, "data: [%p] data_size: [%d] block_size: [%d]", data, data_size, block_size);
+//            return -1;
+//        }
+//        block_size = block_size > data_size ? data_size : block_size;
+//        const uint64_t *block_end = data + block_size;
+//        const uint64_t *data_end = data + data_size;
+//        int pos = 0;
+//        while( block_end != data_end ) {
+//            if( *block_end == 0 && *(block_end - block_size) == 0 ) {
+//                if( __is_zero_block( block_end - block_size, block_size) ) return pos;
+//            }
+//            ++pos;
+//        }
+//        return -1;
+
+        int block_end = minimum;
+        int __left = -1;
+        int __right = 0;
+
+
+        while( true ) {
+
+            if( *(data + block_end) == 0 ) {
+
+                __left = block_end - 1;
+                __right = block_end + 1;
+                while( !(*(data + __left)) ) --__left;
+                while( !(*(data + __right)) ) ++__right;
+
+
+
+            }
+
+            block_end += minimum;
+            if( block_end > data_size ) break;
+        }
+
+    }
+    bool createFileMap(const std::string &path, int minimumZeroBlockSize, FileMap &map) {
+        if( path.empty() ) {
+            DL_ERROR(1, "Empty path");
+            return false;
+        }
+        const size_t fileSize = get_file_size( path );
+        if( fileSize == 0 ) {
+            map.clear();
+            return true;
+        }
+        if( fileSize < (size_t)__global_file_buffer.size() ) {
+            FileBlock single(0, fileSize);
+            map.append(single);
+            return true;
+        }
+        FILE *file = fopen(path.c_str(), "rb");
+        if( file == nullptr ) {
+            DL_ERROR(1, "Can't open file [%s]", path.c_str());
+            return false;
+        }
+
+        if( __global_file_buffer.size() == 0  ) {
+            __global_file_buffer.reserve( GLOBAL_BUFFER_START_SIZE );
+        }
+
+        const size_t blockSize = __global_file_buffer.size();
+
+        size_t bytesLeft = fileSize;
+        while( bytesLeft > (size_t)minimumZeroBlockSize ) {
+
+            int read_now = blockSize > bytesLeft ? bytesLeft : blockSize;
+
+            fread( __global_file_buffer.getData(), 1, read_now, file );
+
+
+
+//            int p = 0;
+//            FileBlock block;
+//            if( (p = __find_zero_block( __global_file_buffer.getData(), read_now, blockSize )) > -1 ) {
+//                block = FileBlock(p, minimumZeroBlockSize, FileBlock::FB__ZEROBLOCK);
+//            } else {
+//                block = FileBlock(fileSize - bytesLeft, read_now);
+//            }
+//            if( map.empty() || !map.back().merge( block )) {
+//                map.append( block );
+//            }
+
+
+
+            bytesLeft -= read_now;
+        }
+        if( bytesLeft ) {
+            FileBlock block(fileSize - bytesLeft, bytesLeft);
+            map.append(block);
+        }
+        FOR_VALUE( map.size(), i ) map[i].hashMe( path );
+
+
+
+        fclose(file);
+        return true;
+    }
+
+    FileTransport *FileSession::receivingFile(int key) const
+    {
+
+    }
+
+    FileTransport *FileSession::sendingFile(int key) const
+    {
+
+    }
+
+    FileTransport *FileSession::startReceive(const DFile &file) {
+        if( iReceiveSpace.find(file.key()) != iReceiveSpace.end() ) {
+            DL_ERROR(1, "File already in receive session");
+            return nullptr;
+        }
+        FileMap map;
+
+        if( readFileMap( file.path(), map) == false ) {
+            if( createFileMap( file.path(), 1024, map ) == false ) {
+                DL_FUNCFAIL(1, "createFileMap");
+                return nullptr;
+            }
+        }
+
+        FileTransport *t = new FileTransport;
+        t->fileMap() = map;
+        iReceiveSpace[file.key()] = t;
+        return t;
+    }
+    FileBlock::FileBlock()
+    {
+
+    }
+
+    FileBlock::FileBlock(size_t start, size_t size, uint8_t blockFlags)
+    {
+
+    }
+
+    bool FileBlock::merge(const FileBlock &b) {
+        if( iStart + iSize == b.iStart && iFlags == b.iFlags ) {
+            iSize += b.iSize;
+            return true;
+        }
+        return false;
+    }
+    static thread_local DPN_SHA256 __global_hashtool;
+    bool FileBlock::hashMe(const std::string &path) {
+        iHash.clear();
+        if( iFlags & FB__ZEROBLOCK ) return true;
+
+        if( __global_hashtool.hash_file_segment( path, iStart, iSize ) == false ) {
+            DL_ERROR(1, "can't hash block: path: [%s] start: [%d] size: [%d]",
+                     path.c_str(), iStart, iSize);
+            return false;
+        }
+        iHash = __global_hashtool.get();
+        return true;
+    }
+
+}
+*/
+
+
+namespace DPN_FILESYSTEM {
+
+    Block::Block() {
+        iStart = 0;
+        iSize = 0;
+        iFlags = 0;
+    }
+    Block::Block(size_t start, size_t size, uint8_t blockFlags) {
+        iStart = start;
+        iSize = size;
+        iFlags = blockFlags;
+    }
+    bool Block::merge(const Block &b) {
+        if( iStart + iSize == b.iStart && iFlags == b.iFlags ) {
+            iSize += b.iSize;
+            return true;
+        }
+        return false;
+    }
+    static thread_local DPN_SHA256 __global_hashtool;
+    bool Block::hashMe(const std::string &path) {
+        iHash.clear();
+        if( iFlags & FB__ZEROBLOCK ) return true;
+
+        if( __global_hashtool.hash_file_segment( path, iStart, iSize ) == false ) {
+            DL_ERROR(1, "can't hash block: path: [%s] start: [%d] size: [%d]",
+                     path.c_str(), iStart, iSize);
+            return false;
+        }
+        iHash = __global_hashtool.get();
+        return true;
+    }
+
+    std::string createMetaPath(const std::string &filePath) {
+
+        std::string metaFilePath = filePath;
+        path_cut_last_section(metaFilePath);
+
+        std::string name = path_get_last_section(filePath);
+        name.insert(0, "~dpn_meta~");
+        metaFilePath.append( name );
+
+//        metaFilePath.append( "~dpn_meta~" );
+        return metaFilePath;
+    }
+    FileMap DPN_FILESYSTEM::Interface::fileMap() {
+        if( badInterface() ) {
+            DL_ERROR(1, "Bad interface");
+            return FileMap();
+        }
+        createFileMap();
+        return inner()->iFileMap;
+    }
+    DFile Interface::file() {
+
+        if( badInterface() ) {
+            DL_ERROR(1, "Bad interface");
+            return DFile();
+        }
+        return inner()->iFile;
+    }
+    bool Interface::createFileMap() {
+
+        FileMap &m = inner()->iFileMap;
+        DFile &file = inner()->iFile;
+
+        m.clear();
+
+        size_t s = get_file_size( file.path() );
+        if( s == 0 ) {
+            m.append( Block( 0, file.size() ) );
+            return true;
+        }
+        if( readMapFromMetafile() ) return true;
+        if( readMapFromPrefix() ) return true;
+        if( generateMap() ) return true;
+
+        m.append( Block( 0, file.size() ) );
+        return true;
+    }
+    bool Interface::readMapFromMetafile() {
+
+        std::string metaFilePath = createMetaPath( inner()->iFile.path() );
+
+        size_t s = get_file_size( metaFilePath );
+        if( s == 0 ) {
+            return false;
+        }
+        FILE *mf = fopen( metaFilePath.c_str(), "rb");
+
+        DPN_ExpandableBuffer b;
+        b.readData( mf, s );
+
+        __hl_item<FileMap> i;
+        i.roughLoad( b );
+        inner()->iFileMap = i.get();
+
+        return true;
+    }
+    bool Interface::readMapFromPrefix() {
+        return false;
+    }
+    bool Interface::generateMap() {
+        return false;
+    }
+    //==========================================
+
+    Channel::Channel(const SystemKernel &k, __channel_mono_interface i, DPN_ExpandableBuffer context) : DWatcher<ChannelData>(true, k, i ) {
+        data()->wContext = context;
+    }
+
+    int Channel::load() const {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "empty watcher");
+            return 0;
+        }
+        return data()->pIO->sendSessionSize();
+    }
+    bool Channel::send( Slice s ) {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "Empty watcher");
+            return false;
+        }
+        if( data()->pIO == nullptr ) {
+            DL_BADPOINTER(1, "io");
+            return false;
+        }
+        DL_INFO(1, "IO__FILE: [%p]", data()->pIO);
+
+        return data()->pIO->send( s );
+    }
+    std::string filemap2text(const FileMap &m) {
+        std::string text("filemap: {");
+        FOR_VALUE( m.size(), i ) {
+            text.append( "[" );
+            text.append( std::to_string( m[i].begin() ));
+            text.append( "-" );
+            text.append( std::to_string( m[i].end() ));
+            text.append( "("); text.append( std::to_string( m[i].iFlags)); text.append(")");
+            text.append( "]" );
+        }
+        text.append("}");
+        return text;
+    }
+    
+    bool IO__FILE::send(Slice &s) {
+
+        DL_INFO(1, "append slice to IO__FILE [%p]. send session size: [%d]",
+                this, aSendSession.size());
+
+        aSendSession.append( s );
+        return true;
+    }
+
+    DPN_Result IO__FILE::generate(DPN_ExpandableBuffer &buffer) {
+        
+        Slice &s = aSendSession[0];
+
+
+        buffer.dropTo( sizeof(PacketHeader) ) ;
+        PacketHeader *h = reinterpret_cast<PacketHeader*>(buffer.getData());
+
+        h->size = s.read( buffer );
+        h->key = -1;
+        h->position = 0;
+
+        return DPN_SUCCESS;
+
+    }
+    DPN_Result IO__FILE::process(DPN_ExpandableBuffer &buffer) {
+
+        const PacketHeader *h = reinterpret_cast<const PacketHeader*>(buffer.getData());
+
+        if( aReceiveSession.find( h->key) == aReceiveSession.end() ) {
+            DFile f = getReceivingFile( h->key );
+            if( BADFILE(f) ) {
+                DL_ERROR(1, "No receiving file with key [%d]", h->key );
+                return DPN_FAIL;
+            }
+            aReceiveSession[ h->key ] = Writer( f );
+        }
+        Writer &w = aReceiveSession[h->key];
+        w.write( buffer.getData(), h->size, h->position );
+        return DPN_SUCCESS;
+    }
+
+    bool Slice::open()
+    {
+
+    }
+
+    int Slice::read(DPN_ExpandableBuffer &dst) {
+
+        if( iReadWindow == 0 ) return 0;
+
+        int read_now = (size_t)iReadWindow > op__bytes_left ? op__bytes_left : iReadWindow;
+        op__load_last = dst.readData( pFile, read_now );
+//        FilePacketHeader *h = reinterpret_cast<FilePacketHeader*>(wInnerBuffer.getData());
+//        h->size = op__load_last;
+//        h->key = iFileKey;
+//        h->position = iStart + op__load_total;
+
+        op__bytes_left -= op__load_last;
+        op__load_total += op__load_last;
+        return op__load_last;
+    }
+
+    Writer::Writer() {
+        pFile = nullptr;
+    }
+    Writer::Writer(DFile file) {
+        wFile = file;
+        pFile =  nullptr;
+    }
+    int Writer::write(const void *data, int size, size_t p) {
+
+    }
+
+    bool SystemKernel::putReceivingFile(DFile file) {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "Empty watcher");
+            return false;
+        }
+        if( data()->__receiving.find( file.key() ) != data()->__receiving.end() ) {
+            DL_INFO(1, "File with key [%d] already in receiving map", file.key());
+            return true;
+        }
+        data()->__receiving[file.key()] = file;
+        return true;
+    }
+
+    DFile SystemKernel::getReceivingFile(int key) {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "Epmty watcher");
+            return DFile();
+        }
+        auto f = data()->__receiving.find( key );
+        if( f == data()->__receiving.end() ) return DFile();
+        return f->second;
+    }
+
+
+
+
+}
 

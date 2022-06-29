@@ -1,9 +1,7 @@
 #include "DPN_FileSystemProcessors.h"
 
 
-#define INFO_LOG DL_INFO(1, "PROC: [%s]", packetTypeName(me()));
-//#define FILE_SYSTEM clientContext.modules()->fileSystem()
-#define CT_PROC(TYPE) threadContext.processor<TYPE>()
+/*
 //====================================================================================== DPN_Processor__sync:
 DPN_Result DPN_Processor__sync::sendPrefix() {
 
@@ -69,61 +67,7 @@ DPN_Result DPN_Processor__sync::receiveReaction() {
     return DPN_SUCCESS;
 }
 //====================================================================================== DPN_Processor__reserve_file_channel:
-/*
-DPN_Result DPN_Processor__reserve_file_channel::receiveReaction() {
 
-    if( pFileSystem == nullptr ) {
-        DL_BADPOINTER(1, "File system");
-        return DPN_FAIL;
-    }
-
-    std::string shadowKey = UNIT_SHADOW_KEY.get();
-    PeerAddress source = UNIT_SOURCE.get();
-    PeerAddress target = UNIT_TARGET.get();
-
-    DPN_Channel *channel = clientContext.client()->channel(shadowKey);
-    auto proc = processor<DPN_PACKETTYPE__TRANSMIT_ANSWER>();
-    proc->setType(DPN_ANSWER__CHANNEL_RESERVE);
-    proc->setHash(shadowKey);
-
-
-
-
-
-    if( channel == nullptr ) {
-        DL_ERROR(1, "No channel");
-        goto fail;
-    }
-    if( channel->local() != source || channel->remote() != target ) {
-
-        DL_ERROR(1, "Bad stats: channel: local: [%s] remote: [%s] receive: source: [%s] target: [%s]",
-                 channel->local().name().c_str(),
-                 channel->remote().name().c_str(),
-                 source.name().c_str(),
-                 target.name().c_str()
-                 );
-        goto fail;
-    }
-    if( pFileSystem->reserveReceiver(channel) == false ) {
-        DL_FUNCFAIL(1, "reserveFileReceiver");
-        goto fail;
-    }
-    clientContext.core()->replanDirections();
-
-    DL_INFO(1, "channel finded: [%p] and reserved "
-               "as receiver", channel);
-
-    proc->setState(true);
-    send(proc);
-
-    return DPN_SUCCESS;
-fail:
-    proc->setState(false);
-    proc->setValue1(DPN_BACKWARD);
-//    send(proc);
-    return DPN_FAIL;
-}
-*/
 //====================================================================================== DPN_Processor__hash_sum:
 DPN_Result DPN_Processor__hash_sum::receiveReaction() {
 
@@ -149,64 +93,7 @@ DPN_Result DPN_Processor__hash_sum::receiveReaction() {
     }
 
 
-    /*
 
-    if(key == CATALOG_HASHSUM_KEY) {
-
-        DL_INFO(1, "Catalog hashsum FS: [%p]", FILE_SYSTEM);
-
-//        bool v = __file_system->verifyHost2Remote(hash, env->hashtool());
-
-//        auto proc = COMPILETIME_PROCESSOR<DPN_PACKETTYPE__TRANSMIT_ANSWER>(*env).processor();
-//        proc->setSource(DPN_ANSWER__REMOTE_CATALOG_VERIFIED);
-//        proc->setState(v);
-//        env->putBackProcessor(proc);
-
-
-//        DL_INFO(1, "HASH: [%s] V: [%d]", hash.c_str(), v);
-    } else if(key > -1) {
-
-        DL_INFO(1, "Get hash for file. key: [%d] hash: [%s]",
-                key, hash.c_str());
-
-//        DPN_FileTransportHandler *h = __env.client()->receivingFile(key);
-//        if(h) {
-//            DL_INFO(1, " >>> transport: [%p]", h);
-//            // check hashsum after transmiting to verify file
-//        }
-//        DFile file = __env.client()->remoteFile(key);
-
-
-//        if(!BADFILE(file)) {
-
-
-
-//            std::string host_hash;
-//            int r = 0;
-//            r = __env.hashtool()->hash_file(file.path_c(), 1024 * 4);
-//            host_hash = __env.hashtool()->get();
-
-//            DL_INFO(1, " >>> file: [%p] path: [%s] hosthash: [%s] r: [%d]",
-//                    file.descriptor(), file.path_c(), host_hash.c_str(), r
-//                    );
-
-//            bool v = bool(host_hash == hash);
-//            DL_INFO(1, "HASH: ORIGINAL: [%s] ON HOST: [%s] v: [%d]",
-//                    hash.c_str(), host_hash.c_str(), v
-//                    );
-////            // hashsum for file...
-//        }
-
-    } else {
-        DL_ERROR(1, "Undefined key: [%d]", key);
-        return false;
-    }
-
-
-    std::cout << "========================================================="
-              << std::endl;
-
-    */
 
     return DPN_SUCCESS;
 }
@@ -368,25 +255,25 @@ DPN_Result DPN_Processor__transmit_answer::proccesReceivedAnswer() {
 
             return DPN_FAIL;
         }
-        DPN_Channel *channel = clientContext.client()->channel(shadowKey);
-        if( channel == nullptr ) {
-            DL_ERROR(1, "DPN_ANSWER__CHANNEL_RESERVE: No channel");
-            post_reaction->setType(DPN_ANSWER__CHANNEL_RESERVE);
-            post_reaction->setHash(shadowKey);
-            post_reaction->setState(false);
-            post_reaction->setValue1(DPN_FORWARD);
-            goto fail;
-        }
-        if( pFileSystem->reserveSender(channel) == false ) {
-            DL_FUNCFAIL(1, "reserveFileSender");
-            post_reaction->setType(DPN_ANSWER__CHANNEL_RESERVE);
-            post_reaction->setHash(shadowKey);
-            post_reaction->setState(false);
-            post_reaction->setValue1(DPN_FORWARD);
-            goto fail;
-        }
+//        DPN_Channel *channel = clientContext.client()->channel(shadowKey);
+//        if( channel == nullptr ) {
+//            DL_ERROR(1, "DPN_ANSWER__CHANNEL_RESERVE: No channel");
+//            post_reaction->setType(DPN_ANSWER__CHANNEL_RESERVE);
+//            post_reaction->setHash(shadowKey);
+//            post_reaction->setState(false);
+//            post_reaction->setValue1(DPN_FORWARD);
+//            goto fail;
+//        }
+//        if( pFileSystem->reserveSender(channel) == false ) {
+//            DL_FUNCFAIL(1, "reserveFileSender");
+//            post_reaction->setType(DPN_ANSWER__CHANNEL_RESERVE);
+//            post_reaction->setHash(shadowKey);
+//            post_reaction->setState(false);
+//            post_reaction->setValue1(DPN_FORWARD);
+//            goto fail;
+//        }
         clientContext.core()->replanDirections();
-        DL_INFO(1, "channel finded [%p] and reserve as sender", channel);
+//        DL_INFO(1, "channel finded [%p] and reserve as sender", channel);
         break;
     }
     default:
@@ -1184,6 +1071,796 @@ void DPN_FileProcessor::sendAnswer(DPN_ANSWER_TYPE t, DPN_ANSWER_SUBTYPE st, int
 
     send(pReaction);
 }
+*/
+
+
+/*
+//========================================================================= DPN_Processor__sync_catalogs:
+DPN_Result DPN_Processor__sync_catalogs::sendPrefix() {
+    INFO_LOG;
+//    return defaultSendStep();
+}
+DPN_Result DPN_Processor__sync_catalogs::receiveReaction() {
+    INFO_LOG;
+//    return defaultReceiveStep();
+}
+DPN_Result DPN_Processor__sync_catalogs::failureProcessing() {
+
+}
+bool DPN_Processor__sync_catalogs::makeHostLine() {
+
+//    auto tr = useTransaction();
+//    if( tr == nullptr ) {
+//        DL_BADPOINTER(1, "transaction");
+//        return false;
+//    }
+//    tr->makeLine<DPN_Processor__sync_catalogs>();
+
+//    tr->line<DPN_Processor__sync_catalogs>()
+
+//            << &DPN_Processor__sync_catalogs::hostRequest
+//            << &DPN_Processor__sync_catalogs::hostProcess
+//            << &DPN_Processor__sync_catalogs::hostSync
+//                                                    ;
+
+//    tr->line<DPN_Processor__sync_catalogs>().setFailStep( &DPN_Processor__sync_catalogs::hostFault );
+    return true;
+}
+bool DPN_Processor__sync_catalogs::makeServerLine() {
+//    auto tr = useTransaction();
+//    if( tr == nullptr ) {
+//        DL_BADPOINTER(1, "transaction");
+//        return false;
+//    }
+//    tr->makeLine<DPN_Processor__sync_catalogs>();
+
+//    tr->line<DPN_Processor__sync_catalogs>()
+
+//            << &DPN_Processor__sync_catalogs::serverProcess
+//            << &DPN_Processor__sync_catalogs::serverSync
+//                                                    ;
+
+//    tr->line<DPN_Processor__sync_catalogs>().setFailStep( &DPN_Processor__sync_catalogs::serverFault );
+    return true;
+}
+DPN_Result DPN_Processor__sync_catalogs::hostRequest() {
+    INFO_LOG;
+    return DPN_SUCCESS;
+}
+DPN_Result DPN_Processor__sync_catalogs::serverProcess() {
+    INFO_LOG;
+
+    if( pFileSystem == nullptr ) {
+        DL_BADPOINTER(1, "File system");
+        return DPN_FAIL;
+    }
+
+    auto &host_catalog = pFileSystem->host();
+
+    host_catalog.renew();
+    std::string topology = host_catalog.topology(true);
+    if(topology.empty()) {
+        DL_ERROR(1, "Empty topology");
+        return DPN_FAIL;
+    }
+//    FileClientInterface i = pFileSystem->clientInterface(clientContext.client());
+//    if( i.badInterface() ) {
+//        DL_ERROR(1, "Bad client interface");
+//        return DPN_FAIL;
+//    }
+//    i.get()->unverifyHost2Remote();
+
+
+    UNIT_TOPOLOGY = topology;
+
+    return DPN_SUCCESS;
+}
+DPN_Result DPN_Processor__sync_catalogs::hostProcess() {
+    INFO_LOG;
+
+    if( pFileSystem == nullptr ) {
+        DL_BADPOINTER(1, "File system");
+        return DPN_FAIL;
+    }
+    if( pFileSystem == nullptr ) {
+        DL_BADPOINTER(1, "File system");
+        return DPN_FAIL;
+    }
+//    if( threadContext.hashtool() == nullptr ) {
+//        DL_BADPOINTER(1, "hashtool");
+//        return DPN_FAIL;
+//    }
+//    FileClientInterface fci = pFileSystem->clientInterface(clientContext.client());
+//    if( fci.badInterface() ) {
+//        DL_ERROR(1, "Bad client interface");
+//        return DPN_FAIL;
+//    }
+
+//    std::string remote_topology = UNIT_TOPOLOGY.get();
+//    fci.get()->unverifyRemote2Host();
+//    std::string host_topology = fci.get()->remote().sync(remote_topology);
+
+//    threadContext.hashtool()->hash_string(host_topology);
+//    std::string host_hash = threadContext.hashtool()->get();
+//    UNIT_HASH = host_hash;
+//    DL_INFO(1, "HOST HASH: [%s]", host_hash.c_str());
+
+    return DPN_SUCCESS;
+}
+DPN_Result DPN_Processor__sync_catalogs::serverSync() {
+    INFO_LOG;
+//    FileClientInterface fci = pFileSystem->clientInterface(clientContext.client());
+//    if( fci.badInterface() ) {
+//        DL_ERROR(1, "Bad client interface");
+//        return DPN_FAIL;
+//    }
+    std::string hash = UNIT_HASH.get();
+//    bool v = fci.get()->verifyHost2Remote(hash);
+//    DL_INFO(1, "hash: [%s] v: [%d]", hash.c_str(), v);
+
+//    UNIT_ANSWER = v;
+    return DPN_SUCCESS;
+}
+DPN_Result DPN_Processor__sync_catalogs::hostSync() {
+    INFO_LOG;
+//    FileClientInterface fci = pFileSystem->clientInterface(clientContext.client());
+//    if( fci.badInterface() ) {
+//        DL_ERROR(1, "Bad client interface");
+//        return DPN_FAIL;
+//    }
+//    bool v = fci.get()->verifyRemote2Host(UNIT_ANSWER.get());
+//    DL_INFO(1, "Catalog verification: [%d]", v);
+    return DPN_SUCCESS;
+}
+DPN_Result DPN_Processor__sync_catalogs::hostFault() {
+    INFO_LOG;
+    return DPN_SUCCESS;
+}
+DPN_Result DPN_Processor__sync_catalogs::serverFault() {
+    INFO_LOG;
+    return DPN_SUCCESS;
+}
+//========================================================================= DPN_Processor__request_file:
+DPN_Result DPN_Processor__request_file::sendPrefix() {
+
+}
+DPN_Result DPN_Processor__request_file::receiveReaction() {
+
+}
+DPN_Result DPN_Processor__request_file::failureProcessing() {
+
+}
+bool DPN_Processor__request_file::makeHostLine() {
+
+}
+bool DPN_Processor__request_file::makeServerLine() {
+
+}
+DPN_Result DPN_Processor__request_file::hostRequest() {
+
+    INFO_LOG;
+
+    if( pFileSystem == nullptr ) {
+        DL_BADPOINTER(1, "File system");
+        return DPN_FAIL;
+    }
+    if( aKeyset.empty() ) {
+        DL_ERROR(1, "Empty keyset");
+        return DPN_FAIL;
+    }
+//    auto tr = useTransaction<Transaction>();
+//    if( tr == nullptr ) {
+//        DL_BADPOINTER(1, "transaction");
+//        return DPN_FAIL;
+//    }
+//    FileClientInterface fci = pFileSystem->clientInterface(clientContext.client());
+//    if( fci.badInterface() ) {
+//        DL_ERROR(1, "Bad client interface");
+//        return DPN_FAIL;
+//    }
+//    tr->aKeyset = aKeyset;
+
+    int key = 0;
+    DArray<__file_metadata> md_array;
+    DPN_FileTransportHandler *h = nullptr;
+    bool catalogDepended = false;
+    std::string __hash;
 
 
 
+//    FOR_VALUE( aKeyset.size(), i ) {
+
+//        __file_metadata md;
+//        key = aKeyset[i];
+//        DFile file = fci.get()->remoteFile(key);
+//        if( catalogDepended == false && file.parent() ) catalogDepended = true;
+
+//        if( BADFILE(file) ) {
+//            DL_BADVALUE(1, "file: key: [%d]", key);
+//            goto fail;
+//        }
+        //-------------------------------------------------------------------------------------------------
+//        if( fci.get()->receivingFile(key) ) {
+//            DL_ERROR(1, "File already receiving: [%d]", key);
+//            continue;
+//        }
+//        FileTransport *transport = fci.get()->startReceive(key);
+//        if( transport == nullptr ) {
+//            DL_FUNCFAIL(1, "startReceive");
+//            goto fail;
+//        }
+
+//        md.key = key;
+//        md.name = file.name();
+//        md.size = file.size();
+//        md.iFileMap = transport->fileMap();
+
+//        md_array.append( md );
+//    }
+//    if( md_array.empty() ) {
+//        DL_ERROR(1, "No files to receive");
+//        goto fail;
+//    }
+
+
+//    if( catalogDepended )
+//        UNIT_HOST_CATALOG_V = fci.get()->remote().getHash(*threadContext.hashtool());
+//    else
+//        UNIT_HOST_CATALOG_V.clearBuffer();
+
+//    __hash = UNIT_HOST_CATALOG_V.get();
+//    DL_INFO(1, "catalogDepended: [%d] hash: [%s]", catalogDepended, __hash.c_str());
+
+
+//    UNIT_FILESET = md_array;
+
+    DL_INFO(1, "Successful host file requesting. md_array: [%d]", md_array.size());
+
+    return DPN_SUCCESS;
+//fail:
+//    return DPN_FAIL;
+}
+DPN_Result DPN_Processor__request_file::serverProcess() {
+    INFO_LOG;
+
+
+    if( pFileSystem == nullptr ) {
+        DL_BADPOINTER(1, "File system");
+        return DPN_FAIL;
+    }
+//    auto tr = useTransaction<Transaction>();
+//    if( tr == nullptr ) {
+//        DL_BADPOINTER(1, "transaction");
+//        return DPN_FAIL;
+//    }
+
+    DArray<__file_metadata> md_array = UNIT_FILESET.get();
+    DPN_FileTransportHandler *h = nullptr;
+
+
+    std::string hostCatalogV;
+    std::string serverCatalogV;
+    bool catalogVersionVerified = false;
+
+//    FileClientInterface fci = pFileSystem->clientInterface(clientContext.client());
+//    if( fci.badInterface() ) {
+//        DL_ERROR(1, "Bad client interface");
+//        return DPN_FAIL;
+//    }
+
+
+
+
+    if( md_array.empty() ) {
+        DL_ERROR(1, "Empty md_array");
+        goto fail;
+    }
+//    __keyset.clear();
+//    FOR_VALUE(md_array.size(), i) {
+//        __keyset.push_back(md_array[i].key);
+//    }
+
+
+
+    FOR_VALUE(md_array.size(), i) {
+
+        __file_metadata md = md_array[i];
+
+        FileMap fm = md.iFileMap;
+        int key = md.key;
+        size_t size = md.size;
+        std::string name = md.name;
+        bool strictable = md.strictable;
+
+
+
+        //----------------------------------------------------------------------------------
+        // Check transmiting state:
+//        if( pFileSystem->sendingFile(key) ) {
+//            DL_INFO(1, "File already sending: [%d]", key);
+//            continue;
+//        }
+        // [Critical check] Check key:
+//        key = -1;
+        const DFile &file = fci.get()->hostFile( key );
+        if( BADFILE(file) ) {
+            DL_ERROR(1, "Bad key: [%d]", key);
+            goto fail;
+        }
+        if( !catalogVersionVerified && file.parent() ) { // catalog depended
+
+//            if( serverCatalogV.empty() ) serverCatalogV = pFileSystem->host().getHash(*threadContext.hashtool());
+            if( serverCatalogV.empty() ) {
+                DL_ERROR(1, "Can't get catalog hash");
+                goto fail;
+            }
+            if( hostCatalogV.empty() ) hostCatalogV = UNIT_HOST_CATALOG_V.get();
+            if( hostCatalogV.empty() ) {
+                DL_ERROR(1, "Empty host catalog hash");
+                goto fail;
+            }
+            if( serverCatalogV != hostCatalogV ) {
+                DL_ERROR(1, "Different catalogs versiongs: server: [%s] host: [%s]",
+                         serverCatalogV.c_str(), hostCatalogV.c_str());
+                goto fail;
+            }
+            DL_INFO(1, "catalog verified!");
+            catalogVersionVerified = true;
+        }
+        // [Critical check] Check name and size:
+        if( name != file.name() ) {
+            DL_ERROR(1, "file: [%d] Sync error: wrong name: local: [%s] remote: [%s]", key, file.name().c_str(), name.c_str());
+            goto fail;
+        }
+        if( size != file.size() ) {
+            DL_ERROR(1, "file: [%d] Sync error: wrong size: local: [%d] remote: [%d]", key, size, file.size());
+            goto fail;
+        }
+        // [Critical check] Check file existing:
+        size_t actual_size = get_file_size(file.path());
+        if(actual_size == 0) {
+            DL_ERROR(1, "No file data. key: [%d] path: [%s]", key, file.path_c());
+            goto fail;
+        }
+        FileMap sendingMap;
+        if( fm.size() ) {
+            std::string hash;
+            FOR_VALUE( fm.size(), i ) {
+                if( fm[i].iFlags & FileBlock::FB__ZEROBLOCK ) {
+                    sendingMap.append( fm[i] );
+                } else {
+//                    threadContext.hashtool()->hash_file_segment(file.path(), fm[i].iStart, fm[i].iSize);
+//                    hash = threadContext.hashtool()->get();
+//                    if( hash != fm[i].iHash ) {
+//                        sendingMap.append( fm[i] );
+//                    }
+                }
+            }
+        } else {
+            DL_INFO(1, "Ready to send all file from first byte: file: [%d]", key);
+        }
+
+        md.iFileMap = sendingMap;
+        md.verified = sendingMap.empty();
+    }
+
+//    tr->aFilesMetaData = aFilesMetaData;
+    aFilesMetaData = md_array;
+    UNIT_FILESET = md_array;
+    return DPN_SUCCESS;
+fail:
+    return DPN_FAIL;
+
+}
+DPN_Result DPN_Processor__request_file::hostPrepare() {
+
+//    auto tr = useTransaction<Transaction>();
+//    if( tr == nullptr ) {
+//        DL_BADPOINTER(1, "transaction");
+//        return DPN_FAIL;
+//    }
+//    FileClientInterface fci = pFileSystem->clientInterface(clientContext.client());
+//    if( fci.badInterface() ) {
+//        DL_ERROR(1, "Bad client interface");
+//        return DPN_FAIL;
+//    }
+//    aFilesMetaData = UNIT_FILESET.get();
+
+//    FOR_VALUE( aFilesMetaData.size(), i ) {
+//        __file_metadata md = aFilesMetaData[i];
+
+//        FileTransport *transport = fci.get()->receivingFile( md.key );
+//        fci.get()->startReceive2( transport );
+//    }
+
+    return DPN_SUCCESS;
+}
+DPN_Result DPN_Processor__request_file::serverPrepare() {
+
+//    FileClientInterface fci = pFileSystem->clientInterface(clientContext.client());
+//    if( fci.badInterface() ) {
+//        DL_ERROR(1, "Bad client interface");
+//        return DPN_FAIL;
+//    }
+//    FOR_VALUE( aFilesMetaData.size(), i ) {
+
+//        __file_metadata md = aFilesMetaData[i];
+//        FileTransport *transport = fci.get()->sendingFile( md.key );
+//        fci.get()->startSend( transport );
+//    }
+    return DPN_SUCCESS;
+}
+DPN_Result DPN_Processor__request_file::hostStart() {
+    return DPN_SUCCESS;
+}
+DPN_Result DPN_Processor__request_file::serverStart() {
+    return DPN_SUCCESS;
+}
+DPN_Result DPN_Processor__request_file::hostFault() {
+
+}
+DPN_Result DPN_Processor__request_file::serverFault() {
+
+}
+*/
+
+
+namespace DPN_FileProcessor {
+
+    //================================================================================= Base
+    Base::Base() {
+        pFileSystem = nullptr;
+    }
+    void Base::injection() {
+
+        pFileSystem = extractFileModule( modules() );
+        DL_INFO(1, "file system: [%p]", pFileSystem);
+    }
+    DPN_FileSystemPrivateInterface Base::getInterface(const DPN_ClientTag *ct) {
+//        pFileSystem = extractFileModule( modules() );
+
+        DL_INFO(1, "Extract file module [%p] processor: [%p]", pFileSystem, this);
+
+        if( pFileSystem == nullptr ) {
+            DL_BADPOINTER(1, "File system");
+            return DPN_FileSystemPrivateInterface();
+        }
+        return pFileSystem->getPrivateIf( ct );
+    }
+    //================================================================================= SyncCatalogs
+    DPN_Result SyncCatalogs::request(HOST_CALL) {
+        INFO_LOG;
+        DL_INFO(1, "SyncCatalogs::request: file system: [%p] proc: [%p]", pFileSystem, this);
+        return DPN_SUCCESS;
+    }
+    DPN_Result SyncCatalogs::processRequest(SERVER_CALL) {
+        INFO_LOG;
+        DL_INFO(1, "SyncCatalogs::processRequest: file system: [%p] proc: [%p]", pFileSystem, this);
+//        return DPN_SUCCESS;
+
+        if( pFileSystem == nullptr ) {
+            DL_BADPOINTER(1, "File system");
+            return DPN_FAIL;
+        }
+
+        auto &host_catalog = pFileSystem->host();
+
+        host_catalog.renew();
+        std::string topology = host_catalog.topology(true);
+        if(topology.empty()) {
+            DL_ERROR(1, "Empty topology");
+            return DPN_FAIL;
+        }
+
+        DPN_FileSystemPrivateInterface i = getInterface( clientUnderlayer().tag() ) ;
+        if( i.badInterface() ) {
+            DL_ERROR(1, "Bad interface");
+            return DPN_FAIL;
+        }
+        i.unverifyHost2Remote();
+
+        UNIT_TOPOLOGY = topology;
+
+        return DPN_SUCCESS;
+    }
+    DPN_Result SyncCatalogs::prepare(HOST_CALL) {
+        INFO_LOG;
+
+        if( pFileSystem == nullptr ) {
+            DL_BADPOINTER(1, "File system");
+            return DPN_FAIL;
+        }
+        DPN_FileSystemPrivateInterface i = getInterface( clientUnderlayer().tag() ) ;
+        if( i.badInterface() ) {
+            DL_ERROR(1, "Bad interface");
+            return DPN_FAIL;
+        }
+        i.unverifyRemote2Host();
+        std::string remote_topology = UNIT_TOPOLOGY.get();
+        std::string host_topology = i.remote()->sync( remote_topology );
+
+        iHashtool.hash_string( host_topology );
+        UNIT_HASH = iHashtool.get();
+
+        return DPN_SUCCESS;
+    }
+    DPN_Result SyncCatalogs::sync(SERVER_CALL) {
+        INFO_LOG;
+        DPN_FileSystemPrivateInterface i = getInterface( clientUnderlayer().tag() ) ;
+        if( i.badInterface() ) {
+            DL_ERROR(1, "Bad interface");
+            return DPN_FAIL;
+        }
+        std::string hash = UNIT_HASH.get();
+
+        DL_INFO(1, "remote hash: [%s], try verify...", hash.c_str());
+        bool v = pFileSystem->compareCatalogHash( hash );
+        i.verifyHost2Remote( v );
+        UNIT_ANSWER = v;
+        return DPN_SUCCESS;
+    }
+    DPN_Result SyncCatalogs::sync(HOST_CALL) {
+        INFO_LOG;
+        DPN_FileSystemPrivateInterface i = getInterface( clientUnderlayer().tag() ) ;
+        if( i.badInterface() ) {
+            DL_ERROR(1, "Bad interface");
+            return DPN_FAIL;
+        }
+        bool v = i.verifyRemote2Host( UNIT_ANSWER.get() );
+        DL_INFO(1, "Catalog verification: [%d]", v);
+        return DPN_SUCCESS;
+    }
+    void SyncCatalogs::fault(HOST_CALL) {
+        INFO_LOG;
+    }
+    void SyncCatalogs::fault(SERVER_CALL) {
+        INFO_LOG;
+    }
+    void SyncCatalogs::makeActionLine() {
+
+        line< SyncCatalogs> ()
+                << &SyncCatalogs::request
+                << &SyncCatalogs::processRequest
+                << &SyncCatalogs::prepare
+                << ServerCallbackWrapper( &SyncCatalogs::sync )
+                << HostCallbackWrapper( &SyncCatalogs::sync )
+                   ;
+    }
+    //================================================================================= RequestFile
+    DPN_Result RequestFile::hostRequest(HOST_CALL) {
+        INFO_LOG;
+
+        if( pFileSystem == nullptr ) {
+            DL_BADPOINTER(1, "File system");
+            return DPN_FAIL;
+        }
+        if( aKeyset.empty() ) {
+            DL_ERROR(1, "Empty keyset");
+            return DPN_FAIL;
+        }
+
+        DL_INFO(1, "keyset: size: [%d] array: [%s]", aKeyset.size(), ia2s( aKeyset ).c_str());
+
+
+        int key = 0;
+        bool catalogDepended = false;
+        std::string __hash;
+
+        DPN_FileSystemPrivateInterface ifc = getInterface( clientUnderlayer().tag() ) ;
+        if( ifc.badInterface() ) {
+            DL_ERROR(1, "Bad interface");
+            return DPN_FAIL;
+        }
+
+        aFilesMetaData.clear();
+        FOR_VALUE( aKeyset.size(), i ) {
+            __file_metadata md;
+            key = aKeyset[i];
+
+            DL_INFO(1, "proc file: [%d]", key);
+            DFile file = ifc.remoteFile( key );
+            if( catalogDepended == false && file.parent() ) catalogDepended = true;
+
+            if( BADFILE(file) ) {
+                DL_BADVALUE(1, "file: key: [%d]", key);
+                return DPN_FAIL;
+            }
+            DPN_FILESYSTEM::Interface fileIf = ifc.request( DPN_HOST, key );
+            if( fileIf.badInterface() ) {
+                DL_ERROR(1, "Bad file [%d] interface", key);
+                return DPN_FAIL;
+            }
+            DPN_FILESYSTEM::FileMap fmap = fileIf.fileMap();
+            if( fmap.empty() ) {
+                DL_ERROR(1, "Empty file map. key: [%d]", key);
+                return DPN_FAIL;
+            }
+
+            md.key = key;
+            md.name = file.name();
+            md.size = file.size();
+            md.iFileMap = fmap;
+
+            aFiles.append( fileIf );
+
+            DL_INFO(1, "File metadata: key: [%d] name: [%s] size: [%d] map size: [%d]",
+                    md.key, md.name.c_str(), md.size, md.iFileMap.size());
+
+            std::cout << DPN_FILESYSTEM::filemap2text( fmap ) << std::endl;
+
+
+            aFilesMetaData.append( md );
+        }
+
+        if( aFilesMetaData.empty() ) {
+            DL_ERROR(1, "No files to receive");
+            return DPN_FAIL;
+        }
+        if( catalogDepended ) {
+            UNIT_CATALOG_V = ifc.remote()->getHash();
+        }
+        else
+            UNIT_CATALOG_V.clearBuffer();
+
+        UNIT_FILESET = aFilesMetaData;
+
+        DL_INFO(1, "Successful host file requesting. aFilesMetaData: [%d] catalog v: [%s]",
+                aFilesMetaData.size(), UNIT_CATALOG_V.get().c_str());
+
+        return DPN_SUCCESS;
+    }
+    DPN_Result RequestFile::serverProcess(SERVER_CALL) {
+        INFO_LOG;
+        if( pFileSystem == nullptr ) {
+            DL_BADPOINTER(1, "File system");
+            return DPN_FAIL;
+        }
+        aFilesMetaData = UNIT_FILESET.get();
+
+
+        DPN_FileSystemPrivateInterface ifc = getInterface( clientUnderlayer().tag() ) ;
+        if( ifc.badInterface() ) {
+            DL_ERROR(1, "Bad interface");
+            return DPN_FAIL;
+        }
+
+        std::string hostCatalogV;
+        std::string serverCatalogV;
+        bool catalogVersionVerified = false;
+
+        aFiles.clear();
+        FOR_VALUE( aFilesMetaData.size(), i ) {
+
+            __file_metadata &md = aFilesMetaData[i];
+            DPN_FILESYSTEM::FileMap fm = md.iFileMap;
+            int key = md.key;
+            size_t size = md.size;
+            std::string name = md.name;
+            bool strictable = md.strictable;
+
+            DPN_FILESYSTEM::Interface fileIf = ifc.request( DPN_SERVER,  key );
+            if( fileIf.badInterface() ) {
+                DL_ERROR(1, "Bad interface");
+                return DPN_FAIL;
+            }
+            const DFile &file = pFileSystem->host().constFile( key );
+            if( BADFILE(file) ) {
+                DL_ERROR(1, "Bad key: [%d]", key);
+                return DPN_FAIL;
+            }
+            if( !catalogVersionVerified && file.parent() ) { // catalog depended
+
+                if( serverCatalogV.empty() ) serverCatalogV = pFileSystem->host().getHash();
+                if( serverCatalogV.empty() ) {
+                    DL_ERROR(1, "Can't get catalog hash");
+                    return DPN_FAIL;
+                }
+                if( hostCatalogV.empty() ) hostCatalogV = UNIT_CATALOG_V.get();
+                if( hostCatalogV.empty() ) {
+                    DL_ERROR(1, "Empty host catalog hash");
+                    return DPN_FAIL;
+                }
+                if( serverCatalogV != hostCatalogV ) {
+                    DL_ERROR(1, "Different catalogs versiongs: server: [%s] host: [%s]",
+                             serverCatalogV.c_str(), hostCatalogV.c_str());
+                    return DPN_FAIL;
+                }
+                DL_INFO(1, "catalog verified!");
+                catalogVersionVerified = true;
+            }
+
+            if( name != file.name() ) {
+                DL_ERROR(1, "file: [%d] Sync error: wrong name: local: [%s] remote: [%s]", key, file.name().c_str(), name.c_str());
+                return DPN_FAIL;
+            }
+            if( size != file.size() ) {
+                DL_ERROR(1, "file: [%d] Sync error: wrong size: local: [%d] remote: [%d]", key, size, file.size());
+                return DPN_FAIL;
+            }
+            size_t actual_size = get_file_size(file.path());
+            if(actual_size == 0) {
+                DL_ERROR(1, "No file data. key: [%d] path: [%s]", key, file.path_c());
+                return DPN_FAIL;
+            }
+
+            DL_INFO(1, "File [%d] checked", key);
+            std::cout << DPN_FILESYSTEM::filemap2text( fm ) << std::endl;
+
+            DPN_FILESYSTEM::FileMap sendingMap;
+            if( fm.size() ) {
+                std::string hash;
+                FOR_VALUE( fm.size(), i ) {
+                    if( fm[i].iFlags & DPN_FILESYSTEM::Block::FB__ZEROBLOCK ) {
+                        sendingMap.append( fm[i] );
+                    } else {
+                        fm[i].hashMe(file.path_c());
+                        if( hash != fm[i].iHash ) {
+                            sendingMap.append( fm[i] );
+                        }
+                    }
+                }
+            } else {
+                DL_INFO(1, "Ready to send all file from first byte: file: [%d]", key);
+            }
+            std::cout << DPN_FILESYSTEM::filemap2text( sendingMap ) << std::endl;
+            md.iFileMap = sendingMap;
+
+            aFiles.append( fileIf );
+
+        }
+        return DPN_SUCCESS;
+    }
+    DPN_Result RequestFile::hostPrepare(HOST_CALL) {
+
+        INFO_LOG;
+        return DPN_SUCCESS;
+    }
+    DPN_Result RequestFile::serverPrepare(SERVER_CALL) {
+
+        INFO_LOG;
+        DPN_FileSystemPrivateInterface ifc = getInterface( clientUnderlayer().tag() ) ;
+        if( ifc.badInterface() ) {
+            DL_ERROR(1, "Bad interface");
+            return DPN_FAIL;
+        }
+        FOR_VALUE( aFiles.size(), i ) {
+            DL_INFO(1, "send file: [%s]", aFiles[i].file().name_c() );
+            ifc.send( aFiles[i] );
+        }
+        return DPN_SUCCESS;
+    }
+    DPN_Result RequestFile::hostStart(HOST_CALL) {
+
+        INFO_LOG;
+        DPN_FileSystemPrivateInterface ifc = getInterface( clientUnderlayer().tag() ) ;
+        if( ifc.badInterface() ) {
+            DL_ERROR(1, "Bad interface");
+            return DPN_FAIL;
+        }
+        FOR_VALUE( aFiles.size(), i ) {
+            DL_INFO(1, "send file: [%s]", aFiles[i].file().name_c() );
+            ifc.receive( aFiles[i] );
+        }
+        return DPN_SUCCESS;
+    }
+    DPN_Result RequestFile::serverStart(SERVER_CALL) {
+        return DPN_SUCCESS;
+    }
+    void RequestFile::fault(HOST_CALL) {
+        DL_INFO(1, "RequestFile: host fault");
+    }
+    void RequestFile::fault(SERVER_CALL) {
+        DL_INFO(1, "RequestFile: server fault");
+    }
+    void RequestFile::makeActionLine() {
+        line<RequestFile>()
+                << &RequestFile::hostRequest
+                << &RequestFile::serverProcess
+                << &RequestFile::hostPrepare
+                << &RequestFile::serverPrepare
+                   ;
+    }
+    //=================================================================================
+
+
+}

@@ -3,15 +3,12 @@
 
 
 
-//#define DL_ERROR(f1, f2, ...)
-//#define DL_FUNCFAIL(f1, f2, ...)
-//#define DL_BADPOINTER(f1, f2, ...)
-
 //----------------------
 #include <DLogs.h>
 #include <sha256.h>
 //----------------------
 #include <mutex>
+#include <thread>
 //----------------------
 
 /* Private fields name prefix:
@@ -226,94 +223,11 @@
 */
 
 /*
-class ModuleSystem1 {
-public:
-    void moduel1_test();
-};
-class ModuleSystem2 {
-public:
-    void moduel2_test();
-};
-template <class ModuleType>
-class ModuleWrapper {
-
-public:
-    void setPtr(ModuleType *__p) {ptr = __p;}
-    ModuleType * getPtr() {return ptr;}
-
-
-    ModuleType *ptr;
-};
-
-template <class T>
-class ModuleAccessor {};
-
-
-class ModuleContainer :
-         ModuleWrapper<ModuleSystem1>,
-         ModuleWrapper<ModuleSystem2>
-{
-//    friend void test();
-//    friend void test2();
-
-    template <class T>
-    friend class ModuleAccessor;
-
-};
-
-#define BIND_MODULE_TO_FUNCTION(MODULE, FUNCTION) \
-    template <> class ModuleAccessor<MODULE> { \
-    friend FUNCTION; \
-    inline static MODULE * ptr(ModuleContainer &mc) {return mc.ModuleWrapper<MODULE>::getPtr();} \
-    };
-
-
-//template <>
-//class ModuleAccessor<ModuleSystem1> {
-//    friend void test();
-//    inline static ModuleSystem1 * ptr(ModuleContainer &mc) { return mc.ModuleWrapper<ModuleSystem1>::getPtr(); }
-//};
-//template <>
-//class ModuleAccessor<ModuleSystem2> {
-//    friend void test2();
-//    ModuleSystem2 * ptr(ModuleContainer &mc) {
-//        return mc.ModuleWrapper<ModuleSystem2>::getPtr();
-//    }
-//};
-
-BIND_MODULE_TO_FUNCTION(ModuleSystem1, void test());
-BIND_MODULE_TO_FUNCTION(ModuleSystem2, void test());
-
-
-
-#define GET_MODULE(TYPE)  mc.ModuleWrapper<TYPE>::getPtr()
-//void test() {
-//    ModuleContainer mc;
-
-//    mc.ModuleWrapper<ModuleSystem1>::setPtr(nullptr);
-//    mc.ModuleWrapper<ModuleSystem2>::setPtr(nullptr);
-
-//    ModuleAccessor<ModuleSystem1> ac;
-//    ac.ptr(mc);
-
-
-//    ModuleAccessor<ModuleSystem2> ac2;
-//    ac2.ptr(mc);
-
-
-//}
-//void test2() {
-
-//    ModuleContainer mc;
-
-//    mc.ModuleWrapper<ModuleSystem1>::setPtr(nullptr);
-//    mc.ModuleWrapper<ModuleSystem2>::setPtr(nullptr);
-
-//    ModuleAccessor<ModuleSystem2> ac;
-//    ac.ptr(mc);
-//}
-
+ * multicontents in processors
+ * processors key-binding
+ * no packet types enum ?
 */
+
 
 #define DPN_CHECK_PORT(port) (port > 0 && port <= 65535)
 #define DPN_CONNECTION_FAULT_PROCESSING
@@ -326,29 +240,173 @@ BIND_MODULE_TO_FUNCTION(ModuleSystem2, void test());
 
 #define DPN_SETTINGS_MARK
 #define DPN_INCLUDE_FFMPEG_FOR_MEDIA
-
+#define DPN_CALL_LOG DL_INFO(1, "object: [%p]", this);
 
 
 #define GET_NAME(X) \
     case X: return "["#X"]"; break
 //======================================
-extern std::mutex __global_mutex;
 #define DPN_THREAD_GUARD(M) std::lock_guard<std::mutex> lock(M)
+#define DPN_THREAD_GUARD2(M) std::lock_guard<std::mutex> lock2(M)
+
+namespace DPN {
+    namespace Util {}
+    namespace Thread {}
+}
+
+namespace DPN {
+    namespace Util {
+        template <class Object>
+        class SimplePool {
+        public:
+            inline Object * get() {
+                if( aObjects.empty() ) return new Object;
+
+                auto o = aObjects.back();
+                aObjects.pop_back();
+                return o;
+            }
+            inline void set(Object *o) {
+                aObjects.push_back(o);
+            }
+            inline bool empty() const {return aObjects.empty();}
+        private:
+            DArray<Object*> aObjects;
+        };
+
+        template <class T>
+        class ThreadSafeList {
+        public:
+            struct Node {
+                friend class ThreadSafeList;
+
+                Node( T *object = nullptr ) :
+                    pObject(object), pPrev(nullptr), pNext(nullptr)
+                {}
+                inline void set( T *o) { pObject = o; }
+                inline void exclude() {
+                    if( pPrev ) pPrev->pNext = pNext;
+                    if( pNext ) pNext->pPrev = pPrev;
+                }
+                inline void connect( Node *n ) {
+                    pNext = n;
+                    n->pPrev = this;
+                }
+                inline Node * next() { return pNext; }
+
+            private:
+                T *pObject;
+                Node *pPrev;
+                Node *pNext;
+            };
+        public:
+            void push_back( T *o ) {
+
+                DPN_THREAD_GUARD( iMutex );
+
+                Node *node = getNode(o);
+                if( pHead ) pHead->connect( node );
+                pHead = node;
+                //---------------------------
+                if( pFirst == nullptr )  pFirst = node;
+                //---------------------------
+            }
+            void push_front( T *o ) {
+
+            }
+            void pop_back() {
+
+            }
+            void pop_front() {
+
+            }
+            void clear() {
+                DPN_THREAD_GUARD( iMutex );
+
+                Node *b = pFirst.load();
+                Node *e = pHead;
+                while(b != e) {
+                    removeNode(b);
+                    b = b->next();
+                }
+                zero();
+            }
+            void moveTo( ThreadSafeList &list ) {
+
+                DPN_THREAD_GUARD( list.iMutex );
+                if( list.pFirst == nullptr ) {
+                    list.pFirst = pFirst;
+                    list.pHead = pHead;
+                } else {
+                    list.pHead->connect( pFirst );
+                    list.pHead = pHead;
+                }
+
+                DPN_THREAD_GUARD2( iMutex );
+                zero();
+            }
+            inline bool empty() const { return pFirst == nullptr; }
+        private:
+            void zero() {
+                pFirst = nullptr;
+                pHead = nullptr;
+            }
+            inline Node * getNode( T *o ) {
+
+                Node *n = iNodePool.get();
+                n->set( o );
+                return n;
+
+                return nullptr;
+            }
+            inline void removeNode( Node *n ) {
+                iNodePool.set( n );
+            }
+        private:
+            std::mutex iMutex;
+            std::atomic<Node*> pFirst;
+            Node *pHead;
+            SimplePool<Node> iNodePool;
+        };
+    }
+}
+
+extern std::mutex __global_mutex;
 
 namespace DPeerNodeSpace {
     extern DLogs::DLogsContext log_context;
     extern DLogs::DLogsContextInitializator logsInit;
 }
-enum DPN_DirectionType {
+enum dpn_direction {
     DPN_FORWARD
     , DPN_BACKWARD
 };
-
 enum DPN_Result {
-    DPN_SUCCESS
-    ,DPN_REPEAT
-    ,DPN_KEEP
-    ,DPN_FAIL
+    DPN_FAIL = 0,
+    DPN_SUCCESS = 1,
+    DPN_REPEAT = 2
+};
+#define DEF_FLAG(FLAG, V) FLAG = (1 << V)
+
+
+template <class FlagType> static void setFlag(FlagType &to, uint64_t f) { to |=  f; }
+template <class FlagType> static void disableFlag(FlagType &to, uint64_t f) { to &= ~f; }
+template <class FlagType> static void inverseFlag(FlagType &to, uint64_t f) { to ^=  f; }
+template <class FlagType> static void clearFlags(FlagType &flags) {flags = 0;}
+template <class FlagType1, class FlagType2> static bool checkFlag(FlagType1 flags, FlagType2 f)  {return flags & f;}
+
+typedef uint64_t dpn_flag;
+enum IOBehaivor {
+
+    IO_NO      =    0,
+    DEF_FLAG(IO_DEVICE, 1),
+    DEF_FLAG(IO_UDP, 2),
+    DEF_FLAG(IO_TCP, 3),
+    DEF_FLAG(IO_MEM, 4),
+    DEF_FLAG(IO_FILE, 5),
+    DEF_FLAG(IO_CALLBACK, 6),
+    DEF_FLAG(IO_SPECIFIC, 7),
+    DEF_FLAG(IO_INNER, 8)
 };
 class DPN_Task {
 public:
@@ -563,6 +621,36 @@ private:
     DArray<DPN_Task*> doit;
 };
 //======================================
+template <class T>
+class dpn_pointer {
+public:
+    dpn_pointer(T *p = nullptr) : ptr(p) {}
+
+    inline operator T*() {return ptr;}
+    inline operator const T*() const {return ptr;}
+
+    inline dpn_pointer & operator=(T *p) {ptr = p;}
+    inline dpn_pointer & operator=(const dpn_pointer &p) {ptr = p.ptr;}
+
+    inline T* operator->() {return ptr;}
+    inline const T* operator->() const {return ptr;}
+
+    inline T* pointer() {return ptr;}
+    inline const T* pointer() const {return ptr;}
+
+    inline void set(T *p) {ptr = p;}
+    inline void clear() {ptr = nullptr;}
+
+    inline void deleteMe() { if(ptr) {delete ptr; ptr = nullptr;} }
+    inline void freeMe() { free_mem(ptr); ptr = nullptr; }
+
+    inline bool isNull() const {return ptr == nullptr;}
+    inline bool isPointer() const {return ptr;}
+private:
+    T *ptr;
+};
+#define PTR(T) dpn_pointer<T>
+//======================================
 struct dpn_local_date {
     int day;
     int month;
@@ -660,13 +748,21 @@ public:
         clear();
         return sha256__hash_data(data, size, context);
     }
-    inline int hash_file(const char *path, size_t bufferSize, size_t partToHash = 0) {
+    inline int hash_file(const char *path, size_t bufferSize, size_t firstPartToHash = 0) {
         clear();
-        return sha256__hash_file(path, bufferSize, context, partToHash); }
-
-    inline int hash_string(const std::string &s) {
+        return sha256__hash_file(path, bufferSize, context, firstPartToHash);
+    }
+    inline bool hash_file_segment(const std::string &path, size_t start, size_t segmentSize) {
         clear();
-        return sha256__hash_data(reinterpret_cast<const uint8_t*>(s.data()), s.size(), context);
+        if( sha256__hash_file_segment(path.c_str(), 1024, context, start, segmentSize) < 0 ) return false;
+        return true;
+    }
+    inline bool hash_string(const std::string &s) {
+        clear();
+        if( sha256__hash_data(reinterpret_cast<const uint8_t*>(s.data()), s.size(), context) < 0 ) {
+            return false;
+        }
+        return true;
     }
 
     inline std::string get() const { return sha256_hash_to_string(context); }
@@ -699,8 +795,6 @@ struct PeerAddress {
     std::string address;
 };
 //======================================
-class DPN_DialogManager;
-class DPN_AbstractClient;
 //======================================
 struct ActionState {
     enum {
@@ -724,88 +818,142 @@ private:
     std::map<TagType, ActionState> iStateMap;
 };
 //======================================
-//class DPN_TransactionMaster;
-class DPN_TransactionMap;
-class DPN_AbstractTransaction;
-class DPN_Channel;
-class DPN_AbstractConnectionsCore;
+
+
+class __channel_mono_interface;
 class DPN_ExpandableBuffer;
+class DPN_ClientTag;
 
 class DPN_AbstractModule {
 public:
-    DPN_AbstractModule(const std::string &name) : iModuleName(name), pCore(nullptr) {}
+    DPN_AbstractModule(const std::string &name) : iModuleName(name) {}
     virtual ~DPN_AbstractModule() {}
-    void setCore(DPN_AbstractConnectionsCore *core) {pCore = core;}
+    virtual void stop() {};
+    virtual bool useChannel( const DPN_ClientTag *tag, dpn_direction d, __channel_mono_interface mono, const DPN_ExpandableBuffer &context ) = 0;
 
-    virtual bool reserveShadowReceiver(DPN_Channel *channel, const DPN_ExpandableBuffer &extra, int transaction) {return false;}
-    virtual bool reserveShadowSender(DPN_Channel *channel, int transaction) {return false;}
-    virtual void unreserveShadowReceiver(const std::string &shadowKey) {};
-    virtual void unreserveShadowSender(const std::string &shadowKey) {};
-
-    virtual void clientDisconnected(const DPN_AbstractClient *client) = 0;
-    virtual void stop() = 0;
 
     const std::string & name() const {return iModuleName;}
-    DPN_AbstractConnectionsCore * core() {return pCore;}
-    const DPN_AbstractConnectionsCore * core() const {return pCore;}
 private:
     std::string iModuleName;
-    DPN_AbstractConnectionsCore *pCore;
 };
 
-//======================================
-struct ClientInitContext;
-class DPN_ClientContext;
-class DPN_UDPPort;
-class DPN_Direction;
+
 
 enum DPN_ClientSystemMessage {
     DPN_CSM__CHECK
     ,DPN_CSM__GLOBAL_ENVIRONMENT
 };
-class DPN_AbstractClient {
-public:
-    virtual bool disconnect() = 0;
-    virtual const PeerAddress & localAddress() const = 0;
-    virtual const PeerAddress & remoteAddress() const = 0;
-    virtual const PeerAddress & avatar() const = 0;
 
-    virtual DPN_TransactionMap & clientTransactions() = 0;
-    virtual DPN_TransactionMap & generatedTransactions() = 0;
-
-
-    virtual void setEnvironment(const DArray<PeerAddress> &env) = 0;
-
-    virtual const std::string & getSessionKey() const = 0;
-    virtual void verifyShadow(const PeerAddress &local, const PeerAddress &remote, const std::string &key) = 0;
-    virtual void registerShadow(const PeerAddress &local, const PeerAddress &remote, const std::string &key) = 0;
-    virtual DPN_Result checkShadowPermission
-    (const PeerAddress &source, const PeerAddress &target, const std::string &sessionKey, const std::string &shadowKey) const = 0;
-    virtual bool addShadowConnection(const ClientInitContext &i) = 0;
-    virtual DPN_Channel * channel(const std::string shadowKey) = 0;
-
-    virtual void shadowConnectionServerAnswer(bool a, int port) = 0;
-
-    virtual DPN_ClientContext context() = 0;
-};
-class DPN_AbstractConnectionsCore {
-public:
-    virtual void toEachClient(DPN_ClientSystemMessage m, DPN_AbstractClient *sourceForException) = 0;
-    virtual void pushTask(DPN_Task *t) = 0;
-
-    virtual bool isShadowAvailable(DPN_AbstractClient *client, int port) = 0;
-    virtual void shadowConnection(DPN_AbstractClient *client, int port) = 0;
-    virtual DPN_AbstractClient * client(const PeerAddress &pa) = 0;
-    virtual DPN_UDPPort * openUDPPort(int port) = 0;
-
-    virtual void replanDirections() = 0;
-    virtual void addGlobalDirection(DPN_Direction *d) = 0;
-    virtual void disconnect(DPN_AbstractClient *c) = 0;
-
-    virtual DArray<PeerAddress> getEnvironment() const = 0;
-};
 
 //======================================
+template <class Q> class __interface_master;
+template <class T>
+class __dpn_interface : private DWatcher<T> {
+public:
+    __dpn_interface() {}
+
+    __dpn_interface( DWatcher<T> &w, __interface_master<T> *parent) {
+        pParent = parent;
+        this->copy( w );
+    }
+    void move( __dpn_interface &o ) {
+        pParent = o.pParent;
+        this->moveFrom( o );
+        o.pParent = nullptr;
+    }
+    inline bool validInterface() const {return this->isCreatedObject();}
+    inline bool badInterface() const {return this->isEmptyObject();}
+    ~__dpn_interface() {close();}
+    void close();
+
+
+protected:
+    inline T * inner() {return this->data();}
+private:
+    __interface_master<T> *pParent;
+};
+template <class T>
+class __interface_master {
+public:
+
+    __dpn_interface<T> get( DWatcher<T> &w ) {
+
+        if( iUsing ) return __dpn_interface<T>();
+        iUsing = true;
+        return __dpn_interface<T>( w, this );
+
+    }
+
+    void close() {
+        iUsing = false;
+    }
+private:
+    bool iUsing;
+};
+template <class T> void __dpn_interface<T>::close() {
+    if( pParent) pParent->close();
+}
+
+
+template <class t1, class t2> class __interface_map;
+
+template < class Key, class I >
+class __dpn_acc_interface : private DWatcher<I> {
+public:
+    __dpn_acc_interface() {
+        pParent = nullptr;
+    }
+    __dpn_acc_interface( DWatcher<I> &w, const Key &key, __interface_map<Key, I> *parent) {
+        pParent = parent;
+        iKey = key;
+        this->copy( w );
+    }
+    void move( __dpn_acc_interface &o ) {
+        pParent = o.pParent;
+        iKey = o.iKey;
+        this->moveFrom( o );
+        o.pParent = nullptr;
+    }
+
+    inline Key & key() { return iKey; }
+
+
+public:
+    inline bool validInterface() const {return this->isCreatedObject();}
+    inline bool badInterface() const {return this->isEmptyObject();}
+    ~__dpn_acc_interface() { if( this->isCreatedObject() ) close(); }
+    void close();
+
+protected:
+    inline I * inner() {return this->data();}
+    inline const I * inner() const { return this->data(); }
+private:
+    __interface_map<Key, I> *pParent;
+    Key iKey;
+};
+template < class Key, class I >
+class __interface_map {
+public:
+    __dpn_acc_interface<Key, I> get( const Key &k, DWatcher<I> &w ) {
+
+        if( iMap.find( k ) == iMap.end() ) iMap[k] = false;
+        bool &u = iMap[k];
+        if( u ) return __dpn_acc_interface<Key, I>();
+        u = true;
+        return __dpn_acc_interface<Key, I>( w, k, this );
+    }
+    void close( const Key &k ) {
+        auto f = iMap.find( k );
+        if( f != iMap.end() ) f->second = false;
+    }
+private:
+    std::map<Key, bool> iMap;
+};
+template <class K, class T> void __dpn_acc_interface<K, T>::close() {
+    if( pParent) pParent->close( iKey );
+}
+//======================================
+
 static std::string ia2s(const DArray<int> &a) {
     std::string s;
     s.append("[");
@@ -823,7 +971,9 @@ public:
 
     __action_unit<T> *next;
     typedef DPN_Result (T::*Action)();
-    __action_unit(Action __a) : a(__a), next(nullptr) {}
+    __action_unit(Action __a) : a(__a), next(nullptr), iLevel(0) {}
+    void setLevel(int l) {iLevel = l;}
+    inline int level() const {return iLevel;}
     DPN_Result action(T *pObj) {
         using namespace DPeerNodeSpace;
         if(pObj == nullptr || a == nullptr ) {
@@ -834,29 +984,45 @@ public:
     }
 private:
     Action a;
+    int iLevel;
 };
-
+class __base_action_line {
+public:
+    inline void setTarget(void *target) { pObject = target; }
+    inline DPN_Result lastResult() const {return iLastResult;}
+    virtual DPN_Result doStep() = 0;
+    virtual DPN_Result doStep( int level ) = 0;
+    virtual bool isOver() const = 0;
+protected:
+    void *pObject;
+    DPN_Result iLastResult;
+};
 template <class T>
-class __action_line {
+class __action_line : public __base_action_line {
 public:
     typedef DPN_Result (T::*Action)();
-    __action_line(T *targetObject = nullptr) : pObj(targetObject) {
+    __action_line(T *targetObject = nullptr)  {
         start = nullptr;
         head = nullptr;
         current = nullptr;
         fail = nullptr;
         iStep = 0;
-    }
-    void setTarget(T *obj) {
-        pObj = obj;
+        pObject = targetObject;
     }
     void setLine(__action_line<T> l) {
         start = l.start;
         head  = l.head;
         fail  = l.fail;
+        current = start;
     }
     __action_line & operator<< (Action a) {
         return add(new __action_unit<T>(a));
+    }
+    __action_line & operator<< (int level ) {
+        if( head ) {
+            head->setLevel( level );
+        }
+        return *this;
     }
 
     DPN_Result go() {
@@ -870,7 +1036,7 @@ public:
         DPN_Result r = DPN_FAIL;
         while(current) {
 
-            r = current->action(pObj);
+            r = current->action(reinterpret_cast<T*>( pObject ));
             if(r == DPN_SUCCESS) {
                 current = current->next;
                 ++iStep;
@@ -881,7 +1047,7 @@ public:
         return DPN_SUCCESS;
 
     }
-    DPN_Result doStep() {
+    DPN_Result doStep() override {
 
         using namespace DPeerNodeSpace;
         if( current == nullptr ) {
@@ -890,7 +1056,32 @@ public:
         }
 
         DL_INFO(1, "action line: [%p] current: [%p]", this, current);
-        iLastResult = current->action(pObj);
+        iLastResult = current->action(reinterpret_cast<T*>( pObject ));
+
+        if( iLastResult == DPN_SUCCESS ) {
+            ++iStep;
+            if( (current = current->next) == nullptr ) return DPN_SUCCESS;
+        }
+        if( iLastResult == DPN_FAIL && fail ) {
+//            fail->action(pObj);
+            return DPN_FAIL;
+        }
+        return iLastResult;
+    }
+    DPN_Result doStep( int level ) override {
+
+        using namespace DPeerNodeSpace;
+
+        while( current && current->level() != level ) current = current->next;
+
+        if( current == nullptr ) {
+            DL_BADPOINTER(1, "current");
+            return DPN_FAIL;
+        }
+
+
+        DL_INFO(1, "action line: [%p] current: [%p]", this, current);
+        iLastResult = current->action(reinterpret_cast<T*>( pObject ));
 
         if( iLastResult == DPN_SUCCESS ) {
             ++iStep;
@@ -904,7 +1095,7 @@ public:
     }
     void doFailStep() {
         if( fail ) {
-            fail->action(pObj);
+            fail->action(reinterpret_cast<T*>( pObject ));
             iLastResult = DPN_FAIL;
             current = nullptr;
         }
@@ -918,8 +1109,8 @@ public:
     }
 
     int step() const {return iStep;}
-    DPN_Result lastResult() const {return iLastResult;}
-    bool isOver() const {return current == nullptr;}
+
+    inline bool isOver() const override {return current == nullptr;}
     bool empty() const {return start == nullptr;}
 private:
     __action_line & add(__action_unit<T> *u) {
@@ -930,17 +1121,20 @@ private:
         return *this;
     }
 private:
-    T *pObj;
-private:
 
     __action_unit<T> *start;
     __action_unit<T> *head;
     __action_unit<T> *current;
     __action_unit<T> *fail;
 
-    DPN_Result iLastResult;
+
     int iStep;
 };
+//=====================================
+class DPN_ClientTag {
+
+};
+
 //=====================================
 int pointerValue(const void *ptr);
 #endif // __DPEERNODE_GLOBAL_H

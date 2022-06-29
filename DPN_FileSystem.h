@@ -4,15 +4,119 @@
 //------- perephery
 #include "DPN_Catalog.h"
 #include "DPN_TransportHandler.h"
-
 //---------------------------
 #include "DPN_Channel.h"
+#include "DPN_Modules.h"
+#include "DPN_ClientData.h"
 
 
 
 
 
-class DPN_FileSystem;
+
+
+class DPN_FileSystemData
+        : public DWatcher<DPN_ClientCore>,
+        public DPN_FILESYSTEM::SystemKernel
+{
+public:
+    DPN_FileSystemData() : DPN_FILESYSTEM::SystemKernel(true) {
+        iRemoteCatalog.createMapFileSystem();
+    }
+    DPN_FileSystemData( DWatcher<DPN_ClientCore> &w ) : DPN_FILESYSTEM::SystemKernel(true) {
+
+        DWatcher<DPN_ClientCore>::copy( w );
+
+        iRemoteCatalog.createMapFileSystem();
+    }
+
+    bool fs__send(DPN_TransmitProcessor *p);
+    bool fs__activateChannel( DPN_FILESYSTEM::Channel ch );
+    bool isBound() const { return DWatcher<DPN_ClientCore>::isCreatedObject(); }
+
+
+    friend class DPN_FileSystemInterface;
+    friend class DPN_FileSystemPrivateInterface;
+
+    DPN_Catalog iRemoteCatalog;
+
+    std::string iDownloadPath;
+
+    bool iStateHost2Remote;
+    bool iStateRemote2Host;
+
+    DArray<DPN_FILESYSTEM::Descriptor> iHostRequest;
+    DArray<DPN_FILESYSTEM::Descriptor> iServerRequest;
+
+    __interface_map<int, DPN_FILESYSTEM::Data> __host_interface;
+    __interface_map<int, DPN_FILESYSTEM::Data> __server_interface;
+
+    DArray<DPN_FILESYSTEM::Channel> aIncomingChannels;
+    DArray<DPN_FILESYSTEM::Channel> aOutgoingChannels;
+
+};
+class DPN_FileSystemDescriptor : public DWatcher<DPN_FileSystemData> {
+public:
+    DPN_FileSystemDescriptor() : DWatcher<DPN_FileSystemData>(true) {}
+    DPN_FileSystemDescriptor( DWatcher<DPN_ClientCore> &w ) : DWatcher<DPN_FileSystemData>(true, w) {}
+    bool isClientBound() const {
+        if( isEmptyObject() ) return false;
+        return data()->isBound();
+    }
+    void bind( DWatcher<DPN_ClientCore> &w) {
+        if( isEmptyObject() ) return;
+        data()->DWatcher<DPN_ClientCore>::copy( w );
+    }
+
+};
+class DPN_FileSystemInterface : public __dpn_acc_interface< const DPN_ClientTag*, DPN_FileSystemData > {
+public:
+    bool sync();
+    bool requestFileset( const DArray<int> &keyset );
+public:
+    const DPN_Catalog *remote() const;
+};
+class DPN_FileSystemPrivateInterface : public __dpn_acc_interface< const DPN_ClientTag*, DPN_FileSystemData > {
+public:
+    DPN_Catalog *remote();
+    DFile remoteFile( int key ) const;
+
+    void unverifyRemote2Host();
+    void unverifyHost2Remote();
+    bool verifyHost2Remote(bool status);
+    bool verifyRemote2Host(bool status);
+public:
+    DPN_FILESYSTEM::Interface request(CallerPosition p, int key );
+    bool send( DPN_FILESYSTEM::Interface i );
+    bool receive( DPN_FILESYSTEM::Interface i );
+public:
+    bool addChannel( __channel_mono_interface mono, dpn_direction direction, const DPN_ExpandableBuffer &context);
+};
+
+class DPN_FileSystem : public DPN_AbstractModule {
+public:
+    bool useChannel(const DPN_ClientTag *tag, dpn_direction d, __channel_mono_interface mono, const DPN_ExpandableBuffer &context) override;
+public:
+    DPN_FileSystem(const std::string &name);
+    DPN_Catalog & host();
+
+
+    DPN_FileSystemInterface getIf( DPN_ClientInterface &clientIf );
+//private:
+    DPN_FileSystemPrivateInterface getPrivateIf( const DPN_ClientTag *clientTag );
+    bool compareCatalogHash( const std::string &hash ) const;
+private:
+    std::map< const DPN_ClientTag*, DPN_FileSystemDescriptor> iClientsData;
+    __interface_map<const DPN_ClientTag*, DPN_FileSystemData> im;
+    __interface_map<const DPN_ClientTag*, DPN_FileSystemData> imPrivite;
+};
+DPN_FileSystem * extractFileModule(DPN_Modules &modules);
+
+
+
+/*
+
+
 class DPN_FileDirection : public DPN_Direction {
 public:
     DPN_FileDirection();
@@ -98,12 +202,14 @@ class DPN_FileSystem : public DPN_AbstractModule {
 public:
     DPN_FileSystem();
     ~DPN_FileSystem();
+
 public:
     const std::string & downloadPath() const {return __downloadPath;}
     void setHostCatalog(DPN_Catalog *catalog);
 
-    bool reserveShadowSender(DPN_Channel *channel, int transaction) override;
-    bool reserveShadowReceiver(DPN_Channel *channel, const DPN_ExpandableBuffer &extra, int transaction) override;
+//    bool reserveShadowSender(DPN_Channel *channel, int transaction) override;
+//    bool reserveShadowReceiver(DPN_Channel *channel, const DPN_ExpandableBuffer &extra, int transaction) override;
+
     void clientDisconnected(const DPN_AbstractClient *client) override;
     void stop() override;
     //=============================================
@@ -157,8 +263,8 @@ public:
 
     bool unsreserveSender(const std::string &shadowKey);
     bool unsreserveReceiver(const std::string &shadowKey);
-    bool reserveSender(DPN_Channel *ch);
-    bool reserveReceiver(DPN_Channel *ch);
+//    bool reserveSender(DPN_Channel *ch);
+//    bool reserveReceiver(DPN_Channel *ch);
     bool hasSpecialChannels() const;
 
 public:
@@ -185,8 +291,8 @@ private:
     DArray<DPN_RequestNote> __requests;
     DPN_SHA256 hashtool;
 
-    DArray<DPN_Channel*> specials;
     DArray<DPN_FileSendDirection*> send_directions;
 };
+*/
 
 #endif // DPN_FILESYSTEM_H

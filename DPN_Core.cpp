@@ -39,38 +39,38 @@ bool DPN_Core::sendMessage(const char *message) {
     }
 
 
-
-
     return connections_core.send_message(message);
-
-
-    return true;
 }
 bool DPN_Core::videoCall() {
-    if( connections_core.clients().empty() ) {
-        DL_ERROR(1, "No clients");
-        return false;
-    }
-    auto &clients =  connections_core.clients();
-    FOR_VALUE( clients.size(), i ) {
-        if( clients[i].state() != DISCONNECTED ) {
-            DPN_MediaClient mc(connections_core.client(i));
-            mc.startVideoStream();
-            return true;
-        }
-    }
+
+//    if( connections_core.remotes.empty() ) {
+//        DL_ERROR(1, "No clients");
+//        return false;
+//    }
+//    auto m = extractMediaModule(connections_core.iGlobalModules);
+//    DPN_ClientInterface ci = connections_core.remotes[0];
+//    auto &channels = ci.channels();
+//    if( channels.empty() ) {
+//        DL_ERROR(1, "No channels");
+//        return false;
+//    }
+//    __channel c = channels[0];
+//    __channel_mono_interface mono = c.getIf( DPN_FORWARD );
+//    if( mono.badInterface() ) {
+//        DL_ERROR(1, "Bad mono interface");
+//        return false;
+//    }
+
+//    m->startStream1( mono, DPN_MS__VIDEO );
     return true;
 }
-DPN_Client &DPN_Core::client(int index) {
-    return connections_core.client(index);
-}
-DPN_MediaSystem &DPN_Core::media() {
+//DPN_MediaSystem &DPN_Core::media() {
 
-    auto m = extractMediaModule(connections_core.iGlobalModules);
-    if( m ) return *m;
+//    auto m = extractMediaModule(connections_core.iGlobalModules);
+//    if( m ) return *m;
 
-    DL_BADPOINTER(1, "Media module");
-}
+//    DL_BADPOINTER(1, "Media module");
+//}
 void DPN_Core::acceptAll() {
     connections_core.acceptAll();
 }
@@ -129,9 +129,9 @@ bool DPN_Core::trcm(const char *command) {
 
             auto sharedPorts = connections_core.sharedPorts();
             auto clients = connections_core.clients();
-            auto dc = connections_core.disconnectedClients();
-            auto incomingConnections = connections_core.incomingConnections();
-            auto outgoingConnections = connections_core.outgoingConnections();
+//            auto dc = connections_core.disconnectedClients();
+//            auto incomingConnections = connections_core.incomingConnections();
+//            auto outgoingConnections = connections_core.outgoingConnections();
             auto threads = connections_core.threads();
             auto tasks = connections_core.tasks();
 
@@ -146,44 +146,44 @@ bool DPN_Core::trcm(const char *command) {
             //---------------------------------------------------------------------------------------------------------------
             DL_INFO(1, ">>> clients: [%d]", clients.size());
             FOR_VALUE(clients.size(), i) {
-                DPN_Client &c = clients[i];
-                DL_INFO(1, "%d client [%s] local: [%s] remote: [%s] state: [%d]", i,
-                        c.name().c_str(), c.local().name().c_str(),
-                        c.remote().name().c_str(), c.state()
-                        );
+//                DPN_Client &c = clients[i];
+//                DL_INFO(1, "%d client [%s] local: [%s] remote: [%s] state: [%d]", i,
+//                        c.name().c_str(), c.local().name().c_str(),
+//                        c.remote().name().c_str(), c.state()
+//                        );
             }
             //---------------------------------------------------------------------------------------------------------------
-            DL_INFO(1, ">>> disconnected clients: [%d]", dc.size());
-            FOR_VALUE( dc.size(), i ) {
-                DPN_Client &c = dc[i];
-                DL_INFO(1, "%d disclient [%s] local: [%s] remote: [%s] state: [%d]", i,
-                        c.name().c_str(),
-                        c.local().name().c_str(),
-                        c.remote().name().c_str(),
-                        c.state()
-                        );
-            }
+//            DL_INFO(1, ">>> disconnected clients: [%d]", dc.size());
+//            FOR_VALUE( dc.size(), i ) {
+//                DPN_Client &c = dc[i];
+//                DL_INFO(1, "%d disclient [%s] local: [%s] remote: [%s] state: [%d]", i,
+//                        c.name().c_str(),
+//                        c.local().name().c_str(),
+//                        c.remote().name().c_str(),
+//                        c.state()
+//                        );
+//            }
             //---------------------------------------------------------------------------------------------------------------
-            DL_INFO(1, ">>> incomingConnections: [%d]", incomingConnections.size());
-            FOR_VALUE(incomingConnections.size(), i) {
-                auto c = incomingConnections[i]->connector();
-                DL_INFO(1, "%d: inc conn: name: [%s] local: [%s] peer: [%s]", i,
-                        incomingConnections[i]->name().c_str(),
-                        c->localName().c_str(),
-                        c->peerName().c_str()
-                        );
+//            DL_INFO(1, ">>> incomingConnections: [%d]", incomingConnections.size());
+//            FOR_VALUE(incomingConnections.size(), i) {
+//                auto c = incomingConnections[i]->connector();
+//                DL_INFO(1, "%d: inc conn: name: [%s] local: [%s] peer: [%s]", i,
+//                        incomingConnections[i]->name().c_str(),
+//                        c->localName().c_str(),
+//                        c->peerName().c_str()
+//                        );
 
-            }
+//            }
             //---------------------------------------------------------------------------------------------------------------
-            DL_INFO(1, ">>> outgoingConnections: [%d]", outgoingConnections.size());
-            FOR_VALUE(outgoingConnections.size(), i) {
-                auto c = outgoingConnections[i]->connector();
-                DL_INFO(1, "%d: out conn: name: [%s] local: [%s] peer: [%s]", i,
-                        outgoingConnections[i]->name().c_str(),
-                        c->localName().c_str(),
-                        c->peerName().c_str()
-                        );
-            }
+//            DL_INFO(1, ">>> outgoingConnections: [%d]", outgoingConnections.size());
+//            FOR_VALUE(outgoingConnections.size(), i) {
+//                auto c = outgoingConnections[i]->connector();
+//                DL_INFO(1, "%d: out conn: name: [%s] local: [%s] peer: [%s]", i,
+//                        outgoingConnections[i]->name().c_str(),
+//                        c->localName().c_str(),
+//                        c->peerName().c_str()
+//                        );
+//            }
             //---------------------------------------------------------------------------------------------------------------
             DL_INFO(1, ">>> threads: [%d]", threads.size());
             FOR_VALUE(threads.size(), i) {
@@ -228,23 +228,15 @@ bool DPN_Core::trcm(const char *command) {
             videoCall();
             break;
         }
-        if( LINE_IS("as") ) {
-
-            if( connections_core.clients().empty() ) {
-                DL_ERROR(1, "No clients");
-                break;
-            }
-            DPN_MediaClient mc(connections_core.client(0));
-            mc.startAudioStream();
-            break;
-        }
-        if( LINE_IS("makeds") ) {
-            if( connections_core.clients().empty() ) {
-                DL_ERROR(1, "No clients");
-                break;
-            }
-            DPN_DataClient c(connections_core.client(0));
-            c.makeChannel(DPN_DataChannel::Generative, DPN_DataChannel::KEYLESS, DPN_DataChannel::ShadowPacketChannel);
+        if( LINE_IS("avs") ) {
+//            auto m = extractMediaModule( connections_core.iGlobalModules );
+//            if( m == nullptr ) {
+//                DL_BADPOINTER(1, "media module");
+//                break;
+//            }
+//            if( m->acceptIncoming() == false ) {
+//                DL_FUNCFAIL(1, "acceptIncmoming");
+//            }
             break;
         }
 
@@ -257,15 +249,35 @@ bool DPN_Core::trcm(const char *command) {
                 DL_ERROR(1, "No clients");
                 break;
             }
-            DPN_Client &c = connections_core.client(0);
-            c.shadow();
+//            DPN_Client &c = connections_core.client(0);
+//            c.shadow(DXT::TCP);
+            break;
+        }
+        if(LINE_IS("shu")) {
+
+            if(connections_core.remotes.empty()) {
+                DL_ERROR(1, "No clients");
+                break;
+            }
+            DPN_ClientInterface c = connections_core.clients()[0];
+            c.makeShadowConnection( DXT::UDP );
             break;
         }
         if(LINE_IS("fch")) {
 
-            DPN_FileClient fc(connections_core.client(0));
+            if(connections_core.remotes.empty()) {
+                DL_ERROR(1, "No clients");
+                break;
+            }
+            DPN_ClientInterface c = connections_core.clients()[0];
 
-            fc.makeSpecialChannel();
+            auto proc = DPN_PROCS::processor<DPN_PACKETTYPE__RESERVE_CHANNEL>();
+            proc->setChannel( c.channels()[0] );
+            proc->setBackwardUser( extractFileModule( connections_core.iGlobalModules ) );
+
+            c.send( proc );
+
+            break;
         }
         if(LINE_IS("m")) {
 
@@ -288,13 +300,17 @@ bool DPN_Core::trcm(const char *command) {
         if(LINE_IS("catalog")) {
 
 
-            if(catalog().empty()) {
+            if( catalog() == nullptr ) {
+                DL_BADPOINTER(1, "Catalog");
+                break;
+            }
+            if(catalog()->empty()) {
                 std::cout << "Empty catalog" << std::endl;
             } else {
                 DL_INFO(1, "Catalog: name: [%s] path: [%s] vpath: [%s]",
-                        catalog().name().c_str(), catalog().path().c_str(), catalog().vpath().c_str());
+                        catalog()->name().c_str(), catalog()->path().c_str(), catalog()->vpath().c_str());
 
-                std::cout << catalog().parseToText(true);
+                std::cout << catalog()->parseToText(true);
             }
             LINE_END;
 
@@ -307,22 +323,34 @@ bool DPN_Core::trcm(const char *command) {
                 return false;
             }
             auto client = connections_core.remotes[0];
+            auto fs = extractFileModule(connections_core.iGlobalModules);
+            DL_INFO(1, "client tag: [%p] file system: [%p]", client.tag(), fs );
 
-            DPN_FileClient fc(client);
+            auto i = fs->getIf( client );
 
-            if(fc.fileSystem().remote().empty())
+            if( i.badInterface() ) {
+                DL_ERROR(1, "Bad interface [remote cmd]");
+                break;
+            }
+            DL_INFO(1, "interface tag: [%p]", i.key());
+
+            if( i.remote() == nullptr ) {
+                DL_BADPOINTER(1, "remote catalog");
+                break;
+            }
+            if( i.remote()->empty() ) {
                 std::cout << "Empty remote catalog" << std::endl;
-            else
-                std::cout << fc.fileSystem().remote().parseToText(true) << std::endl;
+            } else {
+                std::cout << i.remote()->parseToText(true) << std::endl;
+            }
 
             LINE_END;
         }
         if(LINE_IS("f")) {
 
-//            const char *testFile = "F:/DFS_SPACE/UPLOAD/9.png";
-            const char *testFile = "F:/DFS_SPACE/UPLOAD/Jolie.jpg";
-            DPN_FileClient fc(connections_core.client(0));
-            fc.sendFastFile(testFile);
+//            const char *testFile = "F:/DFS_SPACE/UPLOAD/Jolie.jpg";
+//            DPN_FileClient fc(connections_core.client(0));
+//            fc.sendFastFile(testFile);
         }
         if(LINE_IS("fr")) {
 
@@ -343,9 +371,11 @@ bool DPN_Core::trcm(const char *command) {
                 keyset.append(list[0]);
             }
 
-            DPN_FileClient fc(connections_core.client(0));
-            fc.requestFileset(keyset);
+            auto fs = extractFileModule(connections_core.iGlobalModules);
+            auto &client = connections_core.remotes[0];
+            auto i = fs->getIf( client );
 
+            i.requestFileset( keyset );
             break;
         }
 
@@ -370,4 +400,12 @@ void DPN_Core::addThread() {
 
     std::thread t(dpn_thread_stream, tm);
     t.detach();
+}
+DPN_Catalog *DPN_Core::catalog() {
+    DPN_FileSystem *fs = extractFileModule( connections_core.iGlobalModules );
+    if( fs == nullptr ) {
+        DL_BADPOINTER(1, "file module");
+        return nullptr;
+    }
+    return &fs->host();
 }

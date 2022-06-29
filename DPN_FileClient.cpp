@@ -1,6 +1,6 @@
 #include "DPN_FileClient.h"
 
-
+/*
 DPN_FileClient::DPN_FileClient(DPN_Client &c) {
     defaultCopy(c);
     pFileSystem = extractFileModule(data()->modules());
@@ -128,25 +128,26 @@ bool DPN_FileClient::sync() {
 }
 bool DPN_FileClient::makeSpecialChannel() {
 
-    const DArray<DPN_Channel*> &ch = data()->getChannels();
-    if( ch.size() < 2 ) {
-        DL_ERROR(1, "No shadow channels");
-        return false;
-    }
-    DPN_Channel *__pick = nullptr;
-    FOR_VALUE(ch.size(), i) {
+//    const DArray<DPN_Channel*> &ch = data()->getChannels();
+//    if( ch.size() < 2 ) {
+//        DL_ERROR(1, "No shadow channels");
+//        return false;
+//    }
+//    DPN_Channel *__pick = nullptr;
+//    FOR_VALUE(ch.size(), i) {
 
-        if( ch[i]->isFowardFree() ) {
-            __pick = ch[i];
-            break;
-        }
+//        if( ch[i]->isFowardFree() ) {
+//            __pick = ch[i];
+//            break;
+//        }
 
-    }
-    if( __pick == nullptr ) {
-        DL_ERROR(1, "No free channels");
-        return false;
-    }
-    DL_INFO(1, "pick shadow channel: [%p] [%s]", __pick, __pick->shadowKey().c_str());
+//    }
+//    if( __pick == nullptr ) {
+//        DL_ERROR(1, "No free channels");
+//        return false;
+//    }
+//    DL_INFO(1, "pick shadow channel: [%p] [%s]", __pick, __pick->shadowKey().c_str());
+
 
 //    auto proc = data()->processor<DPN_PACKETTYPE__RESERVE_FILE_CHANNEL>();
 //    proc->setContext(__pick->remote(), __pick->local(), __pick->shadowKey());
@@ -161,4 +162,5 @@ bool DPN_FileClient::registerFile(DFile &file) {
     }
     return pFileSystem->registerLocalFile(file);
 }
+*/
 

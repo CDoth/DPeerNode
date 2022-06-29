@@ -14,9 +14,10 @@ void destructMediaMaster(DPN_MediaMaster *m);
 #ifdef DPN_INCLUDE_FFMPEG_FOR_MEDIA
 class DPN_MediaSystem;
 struct MediaContext {
-    MediaContext() {iValid = true;}
+    MediaContext() {iValid = false;}
     inline bool isValid() const {return iValid;}
     MediaContext & operator=(const MediaContext &o) {iValid = true; return *this;}
+    void clear() {iValid = false;}
 private:
     bool iValid;
 };
@@ -37,6 +38,7 @@ struct AudioEncoderContext : public MediaContext {
 struct AudioDecoderContext : public MediaContext {};
 
 struct MediaContextSet {
+    MediaContextSet & operator=(const MediaContextSet &o) {return *this;}
     VideoEncoderContext vec;
     VideoDecoderContext vdc;
     AudioEncoderContext aec;
@@ -53,6 +55,11 @@ public:
 
     inline bool read() { return pInner->read(); }
     inline bool encode() { return pInner->encode(); }
+    inline bool encodeImage() { return pInner->encodeImage();}
+
+    inline const uint8_t * shotData() const {return pInner->shotData();}
+    inline int shotSize() const {return pInner->shotSize();}
+
     inline const uint8_t * encodedData() const { return pInner->writtenData(); }
     inline int encodedSize() const { return pInner->writtenSize(); }
     inline void clearEncoded() { pInner->clearWritten(); }

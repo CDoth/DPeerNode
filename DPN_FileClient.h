@@ -2,8 +2,9 @@
 #define DPN_FILECLIENT_H
 
 #include "DPN_FileSystemProcessors.h"
-#include "DPN_Client.h"
+//#include "DPN_Client.h"
 
+/*
 class DPN_FileClient : public DWatcher<DPN_ClientData> {
 public:
     DPN_FileClient(DPN_Client &c);
@@ -24,6 +25,7 @@ private:
 private:
     DPN_FileSystem *pFileSystem;
 };
+*/
 
 
 #endif // DPN_FILECLIENT_H

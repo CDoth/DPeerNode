@@ -65,9 +65,9 @@ DAbstractFileSystem * DPN_Catalog::createMapFileSystem() {
     }
     return fileSystem;
 }
-std::string DPN_Catalog::getHash(DPN_SHA256 &hashtool) const {
+std::string DPN_Catalog::getHash( ) const {
 
-    hashtool.hash_string(inner.topology(true));
-    return hashtool.get();
+    iHashtool.hash_string(inner.topology(true));
+    return iHashtool.get();
 }
 

@@ -6,192 +6,36 @@
 
 #include "DPN_TransmitTools.h"
 #include "DPN_PacketType.h"
+#include "DPN_ClientUnderLayer.h"
+#include "DPN_Modules.h"
 
 
 
 using namespace DPeerNodeSpace;
-
-class DPN_Modules;
-class DPN_ProcessorPool;
 class DPN_CrossThreadProcessorList;
 
 
-// File requesting
-// Data channel reserving
-class DPN_TransactionMaster;
-class DPN_TransactionParent {
-public:
-    virtual bool finishTransaction(DPN_AbstractTransaction *t) = 0;
-};
-class DPN_AbstractTransaction {
-public:
-    friend class DPN_TransactionMaster;
-    friend class DPN_TransactionMap;
-    DPN_AbstractTransaction();
-    virtual ~DPN_AbstractTransaction();
-    bool finish();
-    int index() const;
-    void use();
-protected:
-    virtual void begining() {}
-    virtual void finishing() {}
-private:
-    DPN_TimeRange iTimeRange;
-    bool iArchived;
-    int iIndex;
-    DPN_TransactionParent *pCreator;
-    int iTransmitCounter;
-};
-/*
-class DPN_TransactionMaster : public DPN_TransactionParent {
-public:
-    template <class TransactionImpl>
-    inline TransactionImpl * generate() {
-        TransactionImpl *t = new TransactionImpl;
-        return reinterpret_cast<TransactionImpl*>( regTr(t) );
-    }
-    inline bool finishTransaction(DPN_AbstractTransaction *t) override { return unregTr(t); }
-
-    DPN_AbstractTransaction * transactionA(int index) const;
-    template <class T> inline T * transactionI(int index) const { return reinterpret_cast<T*>( transactionA(index) ); }
-private:
-    DPN_AbstractTransaction * regTr(DPN_AbstractTransaction *t);
-    bool unregTr(DPN_AbstractTransaction *t);
-private:
-    DArray<DPN_AbstractTransaction*> aLegend;
-    DArray<DPN_AbstractTransaction*> aTrs;
-    DArray<int> aFreeKeys;
-};
-*/
-class DPN_TransactionMap : public DPN_TransactionParent {
-public:
 
 
-    template <class TransactionImpl>
-    inline TransactionImpl * generateTransaction() {
-        TransactionImpl *t = new TransactionImpl;
-        return reinterpret_cast<TransactionImpl*>( regTr(t) );
-    }
-    template <class TransactionImpl>
-    inline TransactionImpl * registerTransaction(int key) {
-        if( !isValidKey(key) ) return nullptr;
-        TransactionImpl *t = new TransactionImpl;
-        return reinterpret_cast<TransactionImpl*>( regTr(t, key) );
-    }
-
-
-    DPN_AbstractTransaction * transactionA(int index) const;
-    template <class T> inline T * transactionI(int index) const { return reinterpret_cast<T*>( transactionA(index) ); }
-    inline bool finishTransaction(DPN_AbstractTransaction *t) override { return unregTr(t); }
-private:
-    bool isValidKey(int key) const;
-    DPN_AbstractTransaction * regTr(DPN_AbstractTransaction *tr, int key);
-    DPN_AbstractTransaction * regTr(DPN_AbstractTransaction *tr);
-    bool unregTr(DPN_AbstractTransaction *t);
-    std::map<int, DPN_AbstractTransaction*> iMap;
-};
-
-struct __client_context {
-    __client_context() {
-        __connector = nullptr;
-        __client = nullptr;
-        __core = nullptr;
-        __modules = nullptr;
-        __flag__client_blocked = false;
-    }
-    __client_context & operator=(const __client_context &cc) {
-        __connector = cc.__connector;
-        __client = cc.__client;
-        __core = cc.__core;
-        __modules = cc.__modules;
-        __flag__client_blocked.store(cc.__flag__client_blocked);
-        return *this;
-    }
-    DPN_NodeConnector *__connector;
-    DPN_AbstractClient *__client;
-    DPN_AbstractConnectionsCore *__core;
-    DPN_Modules *__modules;
-    std::atomic<bool> __flag__client_blocked;
-};
-struct __thread_context {
-    __thread_context() {
-        __processor_pool = nullptr;
-        __back_list = nullptr;
-        __hash_tool = nullptr;
-    }
-    DPN_ProcessorPool *__processor_pool;
-    DPN_CrossThreadProcessorList *__back_list;
-    DPN_SHA256 *__hash_tool;
-    DPN_ExpandableBuffer __buffer;
-};
 class DPN_TransmitProcessor;
+
 template <DPN_PacketType> struct DPN_ProcessorTransform {
     typedef DPN_TransmitProcessor* proc_type;
     static proc_type create() {return nullptr;}
     static proc_type transform(DPN_TransmitProcessor *p) {return p;}
 };
-class DPN_ClientContext : public DWatcher<__client_context> {
-public:
-    DPN_ClientContext() : DWatcher<__client_context>(true) {}
-    void init(const __client_context &c) {
-        *data() = c;
-    }
-    DPN_NodeConnector * connector() {
-        return data()->__connector;
-    }
-    DPN_AbstractClient * client() {return data()->__client;}
-    DPN_AbstractConnectionsCore * core() {return data()->__core;}
-
-    inline DPN_Modules * modules() {return data()->__modules;}
-    inline const DPN_Modules * modules() const {return data()->__modules;}
-
-    void blockClient() {data()->__flag__client_blocked = true;}
-    void unblockClient() {data()->__flag__client_blocked = false;}
-    inline bool isClientBlocked() const {return data()->__flag__client_blocked;}
-
-
-    template <class T> inline T * _generateTransaction() {return data()->__client->generatedTransactions().generateTransaction<T>();}
-    template <class T> inline T * _registerTransaction(int key) {return data()->__client->clientTransactions().registerTransaction<T>(key);}
-
-    template <class T> inline T * innerTransaction(int key) {return data()->__client->generatedTransactions().transactionI<T>(key);}
-    template <class T> inline T * _clientTransaction(int key) {return data()->__client->clientTransactions().transactionI<T>(key);}
-
-
-
-};
-class DPN_ThreadContext : public DWatcher<__thread_context> {
-public:
-    DPN_ThreadContext() : DWatcher<__thread_context>(true) {}
-
-    void setProcessorPool(DPN_ProcessorPool *pp) {data()->__processor_pool = pp;}
-    void setHashTool(DPN_SHA256 *ht) {data()->__hash_tool = ht;}
-
-
-    DPN_ProcessorPool * processorPool() {return data()->__processor_pool;}
-    const DPN_ProcessorPool * processorPool() const {return data()->__processor_pool;}
-    DPN_SHA256 * hashtool() {return data()->__hash_tool;}
-    const DPN_SHA256 * hashtool() const {return data()->__hash_tool;}
-    DPN_ExpandableBuffer & buffer() {return data()->__buffer;}
-    const DPN_ExpandableBuffer & buffer() const {return data()->__buffer;}
-
-    //------------------------------------------------------------------------
-    void alloc();
-    DPN_CrossThreadProcessorList * backList();
-    bool send(DPN_TransmitProcessor *proc);
-    bool returnProcessor(DPN_TransmitProcessor *proc);
-    DPN_TransmitProcessor * processor(DPN_PacketType t, DPN_AbstractTransaction *transaction = nullptr);
-    template <DPN_PacketType t>
-    typename DPN_ProcessorTransform<t>::proc_type
-    processor(DPN_AbstractTransaction *transaction = nullptr);
-
-};
-
 #define UNIT(INNER_TYPE) __hl_item<INNER_TYPE>
+#define DECL_UNIT(TYPE, NAME) UNIT(TYPE) NAME = content()
 
+class DPN_TransactionSpace;
+
+/*
 class DPN_TransmitProcessor {
 public:
-    DPN_TransmitProcessor(DPN_AbstractTransaction *transaction = nullptr);
-    void setTransaction(DPN_AbstractTransaction *t);
+    friend class DPN_ProcessorPool;
+    friend class DPN_TransactionSpace;
+    DPN_TransmitProcessor();
+    virtual ~DPN_TransmitProcessor();
 
     DPN_Result sendCascade();
     DPN_Result receiveCascade();
@@ -204,16 +48,12 @@ public:
     void clear();
     bool complete();
 
-//    void setDialog(DPN_Dialog &d);
-
-
-    void inition(DPN_ClientContext &cc, DPN_ThreadContext &tc);
     virtual void postInition();
-//    void inition(DPN_Context &context);
-
     bool isResendable() const {return iResendFlag;}
 
 
+    const DPN_ExpandableBuffer & product() const;
+    inline int transaction() const {return iIndex;}
 
 protected:
     virtual DPN_Result sendPrefix() {return DPN_SUCCESS;}
@@ -228,109 +68,11 @@ protected:
 
 
     virtual DPN_Result failureProcessing() {return DPN_FAIL;}
-    virtual bool resendPredicat() {return false;}
+    virtual bool resendPredicat();
     virtual bool makeHostLine() {return true;}
     virtual bool makeServerLine() {return true;}
 
     void resend() {iResendFlag = true;}
-
-
-    template <class T>
-    T * useTransation() {
-
-        if( pTransaction )
-        DL_INFO(1, "Transaction seted: [%p] [%d]",
-                pTransaction, pTransaction->index());
-
-        if( pTransaction == nullptr ) {
-            int trIndex = UNIT_TRANSACTION.get();
-            if( trIndex < 0 ) {
-                DL_BADVALUE(1, "transaction index: [%d]", trIndex);
-                return nullptr;
-            }
-            if( checkFlag(PF__GENERATOR) == false ) {
-
-                DL_INFO(1, "Check registered transaction: index: [%d]", trIndex);
-
-                if( (pTransaction = clientContext._clientTransaction<T>(trIndex)) == nullptr ) {
-                    DL_INFO(1, "Can't find transaction, register new [%d]", trIndex);
-                    if( (pTransaction = clientContext._registerTransaction<T>(trIndex)) == nullptr ) {
-                        DL_FUNCFAIL(1, "registerTransaction. key: [%d]", trIndex);
-                        return nullptr;
-                    }
-                    makeServerLine();
-                }
-            } else {
-
-                DL_INFO(1, "Check generated transaction, index: [%d]", trIndex);
-
-                if( (pTransaction = clientContext.innerTransaction<T>(trIndex)) == nullptr ) {
-                    DL_INFO(1, "No transaction, generate it...");
-                    if( (pTransaction = clientContext._generateTransaction<T>()) == nullptr ) {
-                        DL_FUNCFAIL(1, "generateTransaction");
-                        return nullptr;
-                    }
-                    makeHostLine();
-                }
-//                DL_INFO(1, "Make host line...");
-            }
-        }
-        if( pTransaction ) pTransaction->use();
-        return reinterpret_cast<T*>( pTransaction );
-    }
-    /*
-    template <class T>
-    T * useHostTransaction() {
-
-        if( pTransaction == nullptr ) {
-            if( (pTransaction = clientContext._generateTransaction<T>()) == nullptr ) {
-                DL_FUNCFAIL(1, "generateTransaction");
-                return nullptr;
-            }
-            makeHostLine();
-        }
-        if( pTransaction ) pTransaction->use();
-        return reinterpret_cast<T*>(pTransaction);
-    }
-    template <class T>
-    T * useServerTransaction() {
-
-        int trIndex = UNIT_TRANSACTION.get();
-        if( trIndex < 0 ) {
-            DL_BADVALUE(1, "Transaction index: [%d]", trIndex);
-            return nullptr;
-        }
-        if( pTransaction == nullptr ) {
-
-            using namespace DPeerNodeSpace;
-            DL_INFO(1, "transaction index: [%d]", trIndex);
-            if( (pTransaction = clientContext.clientTransaction<T>(trIndex)) == nullptr ) {
-
-                DL_INFO(1, "Can't find transaction, register new [%d]", trIndex);
-
-                if( (pTransaction = clientContext.registerTransaction<T>(trIndex)) == nullptr ) {
-                    DL_FUNCFAIL(1, "registerTransaction. key: [%d]", trIndex);
-                    return nullptr;
-                }
-                makeServerLine();
-
-            }
-
-        }
-        if( pTransaction ) pTransaction->use();
-        return reinterpret_cast<T*>(pTransaction);
-    }
-    */
-
-
-
-    bool send(DPN_TransmitProcessor *p);
-
-    template <DPN_PacketType t>
-    typename DPN_ProcessorTransform<t>::proc_type
-    inline processor() {
-        return threadContext.processor<t>();
-    }
 private:
 
 
@@ -343,87 +85,287 @@ private:
     DPN_Result receiveSuffix();
     DPN_Result receiveResender();
 
-
 private:
     DPN_Result send();
     DPN_Result receive();
-
-    void _init();
-
 private:
-
-//    DPN_Result prepared;
-
     thread_local static __action_line<DPN_TransmitProcessor> iGlobalSendLine;
     thread_local static __action_line<DPN_TransmitProcessor> iGlobalReceiveLine;
     __action_line<DPN_TransmitProcessor> iSendCascade;
     __action_line<DPN_TransmitProcessor> iReceiveCascade;
     bool iResendFlag;
-
     DPN_ExpandableBuffer packet_buffer;
-
 protected:
-//    template <class T> inline T * transaction() {return reinterpret_cast<T*>(pTransaction);}
     DPN_TimeMoment initionTime;
-    DPN_ClientContext clientContext;
-    DPN_ThreadContext threadContext;
     __transmit_content content;
-    DPN_AbstractTransaction *pTransaction;
-    uint8_t iFlags;
     enum ProcessorFlags {
-        PF__FAIL = (1 << 0),
-        PF__GENERATOR = (1 << 1),
-        PF__SNAKEMODE = (1 << 2)
+        PF__FAIL = 1 << 0,
+
     };
     void setFlag(ProcessorFlags f)     { iFlags |=  f; }
     void disableFlag(ProcessorFlags f) { iFlags &= ~f; }
     void inverseFlag(ProcessorFlags f) { iFlags ^=  f; }
     void clearFlags() {iFlags = 0;}
     bool checkFlag(ProcessorFlags f) const {return iFlags & f;}
+
     uint8_t flags() const {return iFlags;}
 
     void setFailMode() {setFlag(PF__FAIL);}
     void disableFailMode() {disableFlag(PF__FAIL);}
 
-
+private:
+    uint8_t iFlags;
 private:
     UNIT(int) UNIT_TRANSACTION = content;
     UNIT(uint8_t) UNIT_FLAGS = content;
+private:
+    int iIndex;
+    DPN_TransactionSpace *pCreator;
 };
+*/
+
+
+
+enum CallerPosition { DPN_HOST, DPN_SERVER };
+static const char * getCallerName( CallerPosition p ) {
+    return p == DPN_HOST ? "Host" : "Server";
+}
+
+
+    struct SERVER_CALL {};
+    struct HOST_CALL {};
+
+
+    template <class T>
+    class ActionUnit {
+    public:
+        typedef DPN_Result (T::*ServerCallback)( SERVER_CALL );
+        typedef DPN_Result (T::*HostCallback)( HOST_CALL );
+
+        ActionUnit( ServerCallback s ) {
+            iPosition = DPN_SERVER;
+            pS = s;
+            pH = nullptr;
+            pNext = nullptr;
+        }
+        ActionUnit( HostCallback h ) {
+            iPosition = DPN_HOST;
+            pS = nullptr;
+            pH = h;
+            pNext = nullptr;
+        }
+
+        void setNext( ActionUnit *n ) {pNext = n;}
+        inline ActionUnit<T> * next() { return pNext; }
+        inline bool checkPosition( CallerPosition cp ) const { return iPosition == cp; }
+        DPN_Result call( T *obj ) {
+
+            using namespace DPeerNodeSpace;
+            if( obj == nullptr ) {
+                DL_BADPOINTER(1, "object");
+                return DPN_FAIL;
+            }
+            if( pS ) return DPN_CALL_MEMBER_FN(obj, pS)( SERVER_CALL() );
+            if( pH ) return DPN_CALL_MEMBER_FN(obj, pH)( HOST_CALL() );
+            return DPN_FAIL;
+        }
+    private:
+        ServerCallback pS;
+        HostCallback pH;
+        CallerPosition iPosition;
+        ActionUnit<T> *pNext;
+    };
+    class AbstractActionLine {
+    public:
+        AbstractActionLine() {
+            pObject = nullptr;
+            iStep = 0;
+            iLastResult = DPN_FAIL;
+        }
+        void setTarget( void *object ) {pObject = object;}
+
+        virtual bool isOver() const = 0;
+        virtual DPN_Result go( CallerPosition cp ) = 0;
+        virtual void restart() = 0;
+        inline int step() const {return iStep;}
+    protected:
+        void *pObject;
+        int iStep;
+        DPN_Result iLastResult;
+    };
+    template <class T>
+    struct HostCallbackWrapper {
+        typedef DPN_Result (T::*HostCallback)( HOST_CALL );
+        HostCallback cb;
+        HostCallbackWrapper( HostCallback h ) : cb(h) {}
+    };
+    template <class T>
+    struct ServerCallbackWrapper {
+        typedef DPN_Result (T::*ServerCallback)( SERVER_CALL );
+        ServerCallback cb;
+        ServerCallbackWrapper( ServerCallback s ) : cb(s) {}
+    };
+
+
+    template <class T>
+    class ActionLine : public AbstractActionLine {
+    public:
+        ActionLine() {
+            start = nullptr;
+            head = nullptr;
+            current = nullptr;
+        }
+        typedef DPN_Result (T::*ServerCallback)( SERVER_CALL );
+        typedef DPN_Result (T::*HostCallback)( HOST_CALL );
+
+        ActionLine & operator<< ( ServerCallback s ) { return add( new ActionUnit<T>( s ) ); }
+        ActionLine & operator<< ( HostCallback h ) { return add( new ActionUnit<T>( h ) ); }
+        ActionLine & operator<< ( HostCallbackWrapper<T> h ) { return add( new ActionUnit<T>( h.cb )); }
+        ActionLine & operator<< ( ServerCallbackWrapper<T> s ) { return add( new ActionUnit<T>( s.cb )); }
+
+        DPN_Result go( CallerPosition cp ) override {
+
+            using namespace DPeerNodeSpace;
+
+//            DL_INFO(1, "line: [%p]", this);
+            while( current && !current->checkPosition( cp ) ) {
+                current = current->next();
+                ++iStep;
+            }
+
+//            DL_INFO(1, "current: [%p]", current);
+
+            if( current == nullptr ) {
+                return DPN_SUCCESS;
+            }
+            iLastResult = DPN_SUCCESS;
+
+            while ( iLastResult == DPN_SUCCESS ) {
+                iLastResult = current->call( reinterpret_cast<T*>( pObject ) );
+
+                ++iStep;
+                if( (current = current->next() ) == nullptr ) return DPN_SUCCESS;
+                if( current->checkPosition( cp ) == false ) return iLastResult;
+            }
+
+            return iLastResult;
+        }
+        void restart() override {
+            current = start;
+            iStep = 0;
+        }
+        inline bool isOver() const override { return current == nullptr; }
+    private:
+        ActionLine & add( ActionUnit<T> *u ) {
+            if( start == nullptr ) start = u;
+            if( current == nullptr ) current = start;
+            if( head ) head->setNext( u );
+            head = u;
+            return *this;
+        }
+    private:
+        ActionUnit<T> *start;
+        ActionUnit<T> *head;
+        ActionUnit<T> *current;
+    };
+
+
+
+
+class DPN_TransmitProcessor {
+public:
+    friend class DPN_TransactionSpace;
+    friend class PacketProcessor;
+    DPN_TransmitProcessor();
+    virtual ~DPN_TransmitProcessor();
+
+    DPN_Result action();
+    DPN_Result action( DPN_ExpandableBuffer &packet );
+    virtual DPN_PacketType me() const {return DPN_PACKETTYPE__NO_TYPE;}
+
+public:
+    void clear();
+    const DPN_ExpandableBuffer & product() const;
+    inline int transaction() const {return iTransactionIndex;}
+    inline bool resendable() {return checkFlag(iInnerFlags, IF__RESENDABLE);}
+    void bindClient( DPN_ClientUnderlayer &u );
+    void bindModules( DPN_Modules m );
+
+    DPN_ClientUnderlayer & clientUnderlayer() { return wClientUnder; }
+    DPN_Modules & modules() { return wModules; }
+protected:
+    template <class Impl>
+    ActionLine<Impl> & line() {
+        if( pLine == nullptr ) {
+            pLine = new ActionLine<Impl>;
+        }
+        return *reinterpret_cast<ActionLine<Impl>*>(pLine);
+    }
+private:
+    void makeResendable() { setFlag( iInnerFlags, IF__RESENDABLE); }
+    void disableResendable() { disableFlag( iInnerFlags, IF__RESENDABLE); }
+    bool inition();
+    void processFault( CallerPosition p );
+protected:
+
+    virtual void makeActionLine() = 0;
+    virtual void injection();
+    virtual void fault( SERVER_CALL );
+    virtual void fault( HOST_CALL );
+    inline __transmit_content & content() { return iContent; }
+private:
+    enum UserFlags {
+
+    };
+    enum InnerFlags {
+        IF__RESENDABLE = (1 << 0)
+    };
+    enum TransportFlags {
+        TF__FAILED = (1 << 0)
+    };
+private:
+    DPN_ClientUnderlayer wClientUnder;
+    DPN_Modules wModules;
+private:
+    uint8_t iUserFlags;
+    uint8_t iInnerFlags;
+    uint8_t iTransportFlags;
+
+    int iTransactionIndex;
+    CallerPosition iPosition;
+    AbstractActionLine *pLine;
+    __transmit_content iContent;
+private:
+    DECL_UNIT(uint8_t, UNIT_FLAGS);
+};
+
 //========================================================================================================
-
-
+class DPN_TransactionSpace {
+public:
+    DPN_TransactionSpace();
+    void setMinimumIndex(int min);
+    void registerTransaction(DPN_TransmitProcessor *t);
+    DPN_TransmitProcessor * registerTransaction(DPN_PacketType, int key);
+    DPN_TransmitProcessor * transaction(int index) const;
+private:
+    bool isValidKey(int key) const;
+    std::map<int, DPN_TransmitProcessor*> iMap;
+    int iMinimumIndex;
+};
 
 typedef DPN_TransmitProcessor* (*CREATE_PROCESSOR)();
 typedef std::map<DPN_PacketType, CREATE_PROCESSOR> PROCMAP_T;
 struct ProcessorMapWrapper {
-
-    inline DPN_TransmitProcessor * create(DPN_PacketType t) {
-        return (map.find(t) == map.end()) ? nullptr : map[t]();
-    }
-
-    const PROCMAP_T & inner() const {return map;}
-
+    DPN_TransmitProcessor * create(DPN_PacketType t);
+    inline const PROCMAP_T & inner() const {return map;}
 private:
     friend struct ProcessorMapFiller;
-    void fill(DPN_PacketType t, CREATE_PROCESSOR callback) {
-        if(map.find(t) == map.end()) {
-            map[t] = callback;
-        }
-    }
+    void fill(DPN_PacketType t, CREATE_PROCESSOR callback);
 private:
     PROCMAP_T map;
 };
 struct ProcessorMapFiller {
-
-    ProcessorMapFiller(DPN_PacketType t, CREATE_PROCESSOR callback, ProcessorMapWrapper *out = nullptr) {
-
-        static ProcessorMapWrapper wrapper;
-
-        if(out)  *out = wrapper;
-        else     wrapper.fill(t, callback);
-    }
-
+    ProcessorMapFiller(DPN_PacketType t, CREATE_PROCESSOR callback, ProcessorMapWrapper *out = nullptr);
 };
 #define DPN_FILL_PROC_MAP(TYPE, PROCESSOR) \
     static ProcessorMapFiller ___proc_binder_ ## TYPE ## __ ## PROCESSOR(TYPE, \
@@ -432,8 +374,9 @@ struct ProcessorMapFiller {
     );
 
 #define DPN_GET_PRC_MAP(OUT_REF) ProcessorMapFiller(DPN_PACKETTYPE__NO_TYPE, nullptr, &OUT_REF);
-//========================================================================================================
+
 extern ProcessorMapWrapper PROCESSOR_CREATOR;
+
 
 
 class DPN_TransmitProcessorMicroPool {
@@ -452,9 +395,6 @@ public:
     template <DPN_PacketType t>
     typename DPN_ProcessorTransform<t>::proc_type
     compiletime__get() {
-
-
-
         typename DPN_ProcessorTransform<t>::proc_type p = nullptr;
         if(pool.size()) {
             p = DPN_ProcessorTransform<t>::transform(pool.front());
@@ -462,7 +402,6 @@ public:
         } else {
             p =  DPN_ProcessorTransform<t>::transform(DPN_ProcessorTransform<t>::create());
         }
-
         return p;
     }
     DPN_TransmitProcessor *
@@ -484,76 +423,36 @@ private:
 //    DPN_SimplePool<DPN_TransmitProcessor> __pool2;
 };
 typedef std::map<DPN_PacketType, DPN_TransmitProcessorMicroPool> POOL_MAP_T;
-
 class DPN_ProcessorPool {
 public:
-
-    DPN_ProcessorPool() {
-
-        DPN_GET_PRC_MAP(PROCESSOR_CREATOR);
-
-        const PROCMAP_T & __inner = PROCESSOR_CREATOR.inner();
-        if(__inner.empty()) {
-            DL_WARNING(1, "Empty processor creator map");
-        } else {
-            for(auto it: __inner) {
-                map[it.first] = DPN_TransmitProcessorMicroPool();
-            }
-        }
-
-    }
+    DPN_ProcessorPool();
 
     template <DPN_PacketType t>
-    typename DPN_ProcessorTransform<t>::proc_type getProcessor(DPN_AbstractTransaction *transaction = nullptr) {
-
-
-        if(map.find(t) == map.end()) {
-            return nullptr;
-        }
+    typename DPN_ProcessorTransform<t>::proc_type getProcessor() {
+//        if(map.find(t) == map.end()) {
+//            return nullptr;
+//        }
+        __insertType(t);
 
         DPN_TransmitProcessorMicroPool &micro_pool = map[t];
         typename DPN_ProcessorTransform<t>::proc_type p = micro_pool.compiletime__get<t>();
-        p->setTransaction(transaction);
         return  DPN_ProcessorTransform<t>::transform(p);
     }
-    DPN_TransmitProcessor * getProcessor(DPN_PacketType t, DPN_AbstractTransaction *transaction = nullptr) {
-
-        if(map.find(t) == map.end()) {
-            DL_ERROR(1, "Bad packet type: [%d:%s]", t, packetTypeName(t));
-            return nullptr;
-        }
-
-        DPN_TransmitProcessorMicroPool &micro_pool = map[t];
-        DPN_TransmitProcessor *p = micro_pool.runtime__get(t);
-
-        p->setTransaction(transaction);
-        return p;
-    }
-    bool returnProcessor(DPN_TransmitProcessor *proc) {
-
-//        DL_INFO(1, "RETURN PROCESSOR: [%p]", proc);
-
-        if(proc == nullptr) {
-            return false;
-        }
-        auto f = map.find(proc->me());
-        if(f == map.end()) {
-            return false;
-        }
-
-        f->second.insertProcessor(proc);
-
-        return true;
-    }
+    DPN_TransmitProcessor * getProcessor(DPN_PacketType t);
+    bool returnProcessor(DPN_TransmitProcessor *proc);
+private:
+    void __insertType(DPN_PacketType t);
 private:
     POOL_MAP_T map;
 };
-//========================================================================================================
-template<DPN_PacketType t>
-typename DPN_ProcessorTransform<t>::proc_type DPN_ThreadContext::processor(DPN_AbstractTransaction *transaction) {
-    return data()->__processor_pool ? data()->__processor_pool->getProcessor<t>(transaction) : nullptr ;
+namespace DPN_PROCS {
+    extern DPN_ProcessorPool __global_ppool;
+    template <DPN_PacketType t>
+    typename DPN_ProcessorTransform<t>::proc_type
+    inline processor() {return __global_ppool.getProcessor<t>();}
+    inline DPN_TransmitProcessor * processor(DPN_PacketType t) {return  __global_ppool.getProcessor(t);}
+    inline bool returnProcessor(DPN_TransmitProcessor *p) {return __global_ppool.returnProcessor(p);}
 }
-
 //---------------------------------------------------------------
 
 class DPN_ProcessorList {

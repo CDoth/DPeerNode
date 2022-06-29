@@ -18,6 +18,12 @@ int DPN_ExpandableBufferData::writeData(FILE *file, int size) const {
     }
     return fwrite(__buffer.constData(), 1, size, file);
 }
+void DPN_ExpandableBufferData::print(int s) const {
+    s = s ? s : __buffer.size();
+    std::cout << "[buffer " << this << "]: {";
+    FOR_VALUE( s, i ) std::cout << (int)__buffer[i] << ' ';
+    std::cout << "}" << std::endl;
+}
 
 
 /*

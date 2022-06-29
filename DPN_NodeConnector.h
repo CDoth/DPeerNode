@@ -7,8 +7,12 @@
 #define RESULT_WRAPPER(R) {result = R; return R;}
 class DPN_NodeConnector {
 public:
-    DPN_NodeConnector();
-    DPN_NodeConnector(DXT::Type);
+//    friend class DPN_AbstractConnectionsCore;
+//    friend class DPN_ConnectionsCore;
+
+    DPN_NodeConnector(DXT::Type type);
+    ~DPN_NodeConnector();
+
 
     bool openPort(int port);
     bool newConnection(int port);
@@ -16,6 +20,9 @@ public:
     bool connectTo(const PeerAddress &a);
     bool connectTo(const char *address, int port);
     bool close();
+    bool bind(int port);
+    inline DXT::Type type() const {return c.type();}
+    inline bool isInitiator() const {return iInitiator;}
 
 public:
     bool readable();
@@ -73,22 +80,21 @@ public:
     }
     //--------------------------------------------------------------------
 private:
-
+    bool iForceReceiving;
+    bool iForceSending;
     DXT c;
     DPN_ExpandableBuffer innerBuffer;
     DPN_Result result;
     int iTb;
     int iPacketSize;
+    bool iInitiator;
 };
-class DPN_UDPPort {
-public:
-    DPN_UDPPort();
-    inline bool bind(int port) { return iUDPSocket.bind(port); }
-    inline bool connect(const PeerAddress &r) { return iUDPSocket.connect(r.port, r.address.c_str()); }
-    inline DXT & socket() { return iUDPSocket; }
-    inline const DXT & socket() const { return iUDPSocket; }
-private:
-    DXT iUDPSocket;
-};
+
+DPN_NodeConnector * dpnOpenUDPPort();
+void dpnCloseUDPPort(DPN_NodeConnector *c);
+void dpnAddUDPPort(int p);
+void dpnAddUDPPorts(int first, int n);
+
+const char *connectionTypeName(DXT::Type t);
 
 #endif // DPN_NODECONNECTOR_H
