@@ -23,11 +23,8 @@ SOURCES += \
     DPN_ClientCore.cpp \
     DPN_ClientData.cpp \
     DPN_ClientUnderLayer.cpp \
-    DPN_ConnectionsCore.cpp \
     DPN_Core.cpp \
     DPN_DataStream.cpp \
-    DPN_DataStreamProcessors.cpp \
-    DPN_FileClient.cpp \
     DPN_FileSystem.cpp \
     DPN_FileSystemProcessors.cpp \
     DPN_IO.cpp \
@@ -47,6 +44,7 @@ SOURCES += \
     DPN_TransmitProcessor.cpp \
     DPN_TransmitTools.cpp \
     DPN_TransportHandler.cpp \
+    DPeerNode.cpp \
     __dpeernode_global.cpp
 
 HEADERS += \
@@ -56,11 +54,8 @@ HEADERS += \
     DPN_ClientCore.h \
     DPN_ClientData.h \
     DPN_ClientUnderLayer.h \
-    DPN_ConnectionsCore.h \
     DPN_Core.h \
     DPN_DataStream.h \
-    DPN_DataStreamProcessors.h \
-    DPN_FileClient.h \
     DPN_FileSystem.h \
     DPN_FileSystemProcessors.h \
     DPN_IO.h \
@@ -80,6 +75,7 @@ HEADERS += \
     DPN_TransmitProcessor.h \
     DPN_TransmitTools.h \
     DPN_TransportHandler.h \
+    DPeerNode.h \
     __dpeernode_global.h
 
 # Default rules for deployment.

@@ -4,11 +4,8 @@ release/DPN_Channel.o
 release/DPN_ClientCore.o
 release/DPN_ClientData.o
 release/DPN_ClientUnderLayer.o
-release/DPN_ConnectionsCore.o
 release/DPN_Core.o
 release/DPN_DataStream.o
-release/DPN_DataStreamProcessors.o
-release/DPN_FileClient.o
 release/DPN_FileSystem.o
 release/DPN_FileSystemProcessors.o
 release/DPN_IO.o
@@ -28,4 +25,5 @@ release/DPN_ThreadUnit.o
 release/DPN_TransmitProcessor.o
 release/DPN_TransmitTools.o
 release/DPN_TransportHandler.o
+release/DPeerNode.o
 release/__dpeernode_global.o

@@ -5,7 +5,7 @@
 DPN_ClientInterface::DPN_ClientInterface() {
 
 }
-DPN_ClientInterface::DPN_ClientInterface( const DPN_Thread::ThreadUser &sharing, DPN_NodeConnector *c) : DWatcher<DPN_ClientCore>(true, sharing) {
+DPN_ClientInterface::DPN_ClientInterface( const DPN::Thread::ThreadUser &sharing, DPN_NodeConnector *c) : DWatcher<DPN_ClientCore>(true, sharing) {
     DL_INFO(1, "Client if created. init");
     if( c ) init ( c );
 }
@@ -25,9 +25,6 @@ const DPN_ClientTag *DPN_ClientInterface::tag() const {
 }
 const DArray<__channel> &DPN_ClientInterface::channels() const {
     return data()->shadows();
-}
-const DArray<DPN_ThreadUnit *> &DPN_ClientInterface::threadUnits() const {
-    return data()->aThreadUnits;
 }
 void DPN_ClientInterface::sendMessage(const char *m) {
     auto proc = DPN_PROCS::processor<DPN_PACKETTYPE__TEXT_MESSAGE>();

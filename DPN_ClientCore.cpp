@@ -2,14 +2,17 @@
 
 
 //==========================================================================
-DPN_ClientCore::DPN_ClientCore(const ThreadUser &sharing) : DPN_Thread::ThreadUser(sharing), wClientUnder( this, true) {
+DPN_ClientCore::DPN_ClientCore() : DPN::Thread::ThreadUser(false) {
+
+}
+DPN_ClientCore::DPN_ClientCore(const ThreadUser &sharing) : DPN::Thread::ThreadUser(sharing), wClientUnder( this, true) {
     DL_INFO(1, "Client core [%p] created", this);
 }
 void DPN_ClientCore::init(DPN_NodeConnector *c) {
     if( baseInit( c, wClientUnder ) ) {
 
-        DPN_Thread::ThreadUser::putUnit( forward() );
-        DPN_Thread::ThreadUser::putUnit( backward() );
+        DPN::Thread::ThreadUser::putUnit( forward() );
+        DPN::Thread::ThreadUser::putUnit( backward() );
     }
 }
 bool DPN_ClientCore::send(DPN_TransmitProcessor *p) {

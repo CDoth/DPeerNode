@@ -7,52 +7,77 @@
 #include "__dpeernode_global.h"
 #include "DPN_ThreadUnit.h"
 
-class DPN_ThreadBridge;
-class DPN_ThreadMaster;
 
-namespace DPN_Thread {
+
+namespace DPN::Thread {
+
+    enum Policy {
+        THIS_THREAD, DAEMON_THREAD
+    };
 
     //----------------------------------------------------------------
     struct __unit_pool__ {
+        __unit_pool__();
         DPN::Util::ThreadSafeList<DPN_ThreadUnit> iPool;
+        int iSize;
     };
-    class UnitPool : private DWatcher< __unit_pool__ > {
+    class UnitPoolInterface : private DWatcher< __unit_pool__ > {
     public:
+        UnitPoolInterface( bool makeSource );
+        UnitPoolInterface( UnitPoolInterface &share );
+
         DPN_ThreadUnit * get();
         void put( DPN_ThreadUnit *unit );
+        void put( const DArray<DPN_ThreadUnit *> &u );
     };
     //----------------------------------------------------------------
-    class __thread_core__ : public UnitPool {
-
+    class __thread_core__ : public UnitPoolInterface {
     public:
-        void run();
+        friend class ThreadCore;
+        __thread_core__( UnitPoolInterface &up );
+        ~__thread_core__();
+    public:
+        void threadcore_run();
+    private:
+        void threadcore_start();
+        void threadcore_iterate();
     private:
         void accept();
+        void backAll();
     private:
+        std::atomic_bool iPlayable;
         uint64_t threadId;
         std::thread::id stdThreadId;
-
-        DArray<DPN_ThreadUnit*> aPlaned;
         DArray<DPN_ThreadUnit*> aAccepted;
     };
     class ThreadCore : private DWatcher< __thread_core__ > {
-
-    };
-    //----------------------------------------------------------------
-    struct __thread_user__ {
-
-        DArray<ThreadCore> aThreads;
-    };
-    class ThreadUser : public UnitPool {
     public:
+        ThreadCore( UnitPoolInterface sharingPool );
+        std::thread::id id() const;
+        void run();
+    };
+    inline static void start( ThreadCore tc ) { tc.run(); }
+    //----------------------------------------------------------------
+    class __thread_user__ : public UnitPoolInterface {
+    public:
+        __thread_user__();
+        bool isThreadFree() const;
+        DArray< ThreadCore > aThreads;
+    };
+    class ThreadUser : DWatcher< __thread_user__ > {
+    public:
+        ThreadUser( bool makeSource );
         ThreadUser( const ThreadUser &sharing );
-
         void putUnit( DPN_ThreadUnit *unit );
+
+        void startStream( Policy p );
+    private:
+        UnitPoolInterface poolIf();
     };
 }
 
 
-
+/*
 struct DPN_ThreadBridgeData {
 public:
 
@@ -122,14 +147,7 @@ private:
     void start();
 
 };
-struct __thread_kernel__ {
-    DArray<DPN_ThreadBridge> aThreads;
-};
-class DPN_ThreadKernel : DWatcher< __thread_kernel__ > {
-public:
-    void replanUnits();
-private:
 
-};
+*/
 
 #endif // DPN_THREADBRIDGE_H

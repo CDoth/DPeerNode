@@ -2,7 +2,7 @@
 #include "DPN_ThreadBridge.h"
 #include <sstream>
 using namespace DPeerNodeSpace;
-
+/*
 DPN_ThreadBridge::DPN_ThreadBridge() : DWatcher<DPN_ThreadBridgeData>(true)
 {
 
@@ -147,61 +147,111 @@ bool DPN_ThreadBridgeData::__hold_direction(DPN_ThreadUnit *d) {
     d->inThread = true;
     return true;
 }
-
-//============================================================
-
-void DPN_Thread::ThreadCore::accept() {
+*/
 
 
-//    if(acceptMode == NO_ACCEPT) {
-//        return;
-//    }
-
-//    switch (acceptMode) {
-//    case REPLACE:
-
-//        FOR_VALUE(accepted.size(), i) {
-//            accepted[i]->inThread = false;
-//        }
-//        accepted.clear();
-//        acceptMode = __KEEP_REPLACE;
-//        break;
-//    case __KEEP_REPLACE:
-//        FOR_VALUE(planed.size(), i) {
 
 
-//            DL_INFO(1, "direction: [%p] inThread: [%d]",
-//                    planed[i], bool(planed[i]->inThread)
-//                    );
+namespace DPN::Thread {
 
-
-//            if( planed[i]->inThread == false ) {
-//                __hold_direction(planed[i]);
-//                planed.removeByIndex(i--);
-//            }
-//        }
-//        if(planed.empty()) {
-//            acceptMode = NO_ACCEPT;
-//        }
-//        break;
-//    default:break;
-//    }
-}
-
-void DPN_Thread::__thread_core__::run() {
-    accept();
-
-    if( aAccepted.empty() ) return;
-
-    FOR_VALUE( aAccepted.size(), i ) {
-        DPN_ThreadUnit *unit = aAccepted[i];
-
-        if( unit->isBlocked() || unit->unitProc() == false ) {
-            aAccepted.removeByIndex( i-- );
-            unit->kick();
+    //----------------------------------------------------------------
+    __unit_pool__::__unit_pool__() : iSize(0) {}
+    UnitPoolInterface::UnitPoolInterface(bool makeSource) : DWatcher<__unit_pool__>(makeSource) { }
+    UnitPoolInterface::UnitPoolInterface(UnitPoolInterface &share) : DWatcher<__unit_pool__>( share ) { }
+    DPN_ThreadUnit *UnitPoolInterface::get() {
+        if( data()->iPool.empty() == false ) {
+            --data()->iSize;
+            return data()->iPool.takeLast();
+        }
+        return nullptr;
+    }
+    void UnitPoolInterface::put(DPN_ThreadUnit *unit) {
+        if( unit ) {
+            ++data()->iSize;
+            data()->iPool.push_back( unit );
         }
     }
-}
-void DPN_Thread::__thread_core__::accept() {
+    void UnitPoolInterface::put(const DArray<DPN_ThreadUnit *> &u) {
+        FOR_VALUE( u.size(), i ) {
+            data()->iPool.push_back( u[i] );
+        }
+        data()->iSize += u.size();
+    }
+    //----------------------------------------------------------------
+    __thread_core__::__thread_core__(UnitPoolInterface &up) : UnitPoolInterface(up) { }
+    __thread_core__::~__thread_core__() {
+        backAll();
+    }
 
+    void __thread_core__::threadcore_run() {
+        threadcore_start();
+        while( iPlayable ) {
+            threadcore_iterate();
+        }
+    }
+    void __thread_core__::threadcore_iterate() {
+        accept();
+
+        if( aAccepted.empty() ) return;
+
+        FOR_VALUE( aAccepted.size(), i ) {
+            DPN_ThreadUnit *unit = aAccepted[i];
+
+            if( unit->isBlocked() || unit->unitProc() == false ) {
+                aAccepted.removeByIndex( i-- );
+                unit->kick();
+            }
+        }
+    }
+    void __thread_core__::accept() {
+
+        DPN_ThreadUnit *unit = nullptr;
+        if( (unit = UnitPoolInterface::get()) ) {
+            aAccepted.append( unit );
+        }
+    }
+    void __thread_core__::backAll() {
+        UnitPoolInterface::put( aAccepted );
+        aAccepted.clear();
+    }
+    ThreadCore::ThreadCore(UnitPoolInterface sharingPool) : DWatcher<__thread_core__>(true, sharingPool) {}
+
+    std::thread::id ThreadCore::id() const { return data()->stdThreadId; }
+
+    void ThreadCore::run() { data()->threadcore_run(); }
+    //----------------------------------------------------------------
+    __thread_user__::__thread_user__() : UnitPoolInterface(true) {
+
+    }
+    bool __thread_user__::isThreadFree() const {
+        FOR_VALUE( aThreads.size(), i ) {
+            if( aThreads[i].id() == std::this_thread::get_id() ) return false;
+        }
+        return true;
+    }
+    ThreadUser::ThreadUser(bool makeSource) : DWatcher<__thread_user__>(makeSource) { }
+    ThreadUser::ThreadUser(const ThreadUser &sharing) : DWatcher<__thread_user__>(sharing) {}
+    void ThreadUser::putUnit(DPN_ThreadUnit *unit) {
+        data()->put( unit );
+    }
+    void ThreadUser::startStream(Policy p) {
+
+        if( !data()->isThreadFree() ) return;
+
+        if( p == THIS_THREAD ) {
+            DPN::Thread::start( ThreadCore( poolIf() ) );
+        } else {
+            std::thread __t (
+
+            DPN::Thread::start, ThreadCore( poolIf() )
+
+                        );
+
+            __t.detach();
+        }
+    }
+    UnitPoolInterface ThreadUser::poolIf() { return *data(); }
 }
+
+
+

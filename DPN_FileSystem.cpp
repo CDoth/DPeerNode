@@ -990,6 +990,6 @@ bool DPN_FileSystemData::fs__send( DPN_TransmitProcessor *p ) {
 }
 bool DPN_FileSystemData::fs__activateChannel(DPN_FILESYSTEM::Channel ch) {
 
-    DWatcher<DPN_ClientCore>::data()->putThreadUnit( ch.threadUnit() );
+    DWatcher<DPN_ClientCore>::data()->putUnit( ch.threadUnit() );
     return true;
 }

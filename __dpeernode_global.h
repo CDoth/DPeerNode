@@ -287,6 +287,10 @@ namespace DPN {
                 inline void exclude() {
                     if( pPrev ) pPrev->pNext = pNext;
                     if( pNext ) pNext->pPrev = pPrev;
+
+                    pPrev = nullptr;
+                    pNext = nullptr;
+                    pObject = nullptr;
                 }
                 inline void connect( Node *n ) {
                     pNext = n;
@@ -311,14 +315,31 @@ namespace DPN {
                 if( pFirst == nullptr )  pFirst = node;
                 //---------------------------
             }
-            void push_front( T *o ) {
-
-            }
             void pop_back() {
-
+                DPN_THREAD_GUARD( iMutex );
+                innerPopBack();
             }
-            void pop_front() {
+            T * last() {
+                if( pHead == nullptr ) return nullptr;
 
+                DPN_THREAD_GUARD( iMutex );
+
+                return pHead->pObject;
+            }
+            const T * last() const {
+                if( pHead == nullptr ) return nullptr;
+
+                DPN_THREAD_GUARD( iMutex );
+
+                return pHead->pObject;
+            }
+            T * takeLast() {
+                if( pHead == nullptr ) return nullptr;
+
+                DPN_THREAD_GUARD( iMutex );
+                T *o = pHead->pObject;
+                innerPopBack();
+                return o;
             }
             void clear() {
                 DPN_THREAD_GUARD( iMutex );
@@ -334,6 +355,7 @@ namespace DPN {
             void moveTo( ThreadSafeList &list ) {
 
                 DPN_THREAD_GUARD( list.iMutex );
+                
                 if( list.pFirst == nullptr ) {
                     list.pFirst = pFirst;
                     list.pHead = pHead;
@@ -347,6 +369,13 @@ namespace DPN {
             }
             inline bool empty() const { return pFirst == nullptr; }
         private:
+            inline void innerPopBack() {
+                if( pHead ) {
+                    Node *h = pHead;
+                    pHead = h->pPrev;
+                    removeNode( h );
+                }
+            }
             void zero() {
                 pFirst = nullptr;
                 pHead = nullptr;
@@ -360,6 +389,7 @@ namespace DPN {
                 return nullptr;
             }
             inline void removeNode( Node *n ) {
+                n->exclude();
                 iNodePool.set( n );
             }
         private:

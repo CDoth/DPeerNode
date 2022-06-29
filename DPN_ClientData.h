@@ -170,13 +170,12 @@ private:
 class DPN_ClientInterface : private DWatcher<DPN_ClientCore> {
 public:
     DPN_ClientInterface( );
-    DPN_ClientInterface( const DPN_Thread::ThreadUser &sharing, DPN_NodeConnector *c );
+    DPN_ClientInterface( const DPN::Thread::ThreadUser &sharing, DPN_NodeConnector *c );
     bool init(DPN_NodeConnector *c );
     void setModules( DPN_Modules modules );
 
     const DPN_ClientTag * tag() const;
     const DArray<__channel> & channels() const;
-    const DArray<DPN_ThreadUnit*> & threadUnits() const;
     void sendMessage(const char *m);
     void makeShadowConnection(DXT::Type);
     bool send(DPN_TransmitProcessor *cp);

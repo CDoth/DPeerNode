@@ -4,11 +4,8 @@ debug/DPN_Channel.o
 debug/DPN_ClientCore.o
 debug/DPN_ClientData.o
 debug/DPN_ClientUnderLayer.o
-debug/DPN_ConnectionsCore.o
 debug/DPN_Core.o
 debug/DPN_DataStream.o
-debug/DPN_DataStreamProcessors.o
-debug/DPN_FileClient.o
 debug/DPN_FileSystem.o
 debug/DPN_FileSystemProcessors.o
 debug/DPN_IO.o
@@ -28,4 +25,5 @@ debug/DPN_ThreadUnit.o
 debug/DPN_TransmitProcessor.o
 debug/DPN_TransmitTools.o
 debug/DPN_TransportHandler.o
+debug/DPeerNode.o
 debug/__dpeernode_global.o
