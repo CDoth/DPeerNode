@@ -1,7 +1,7 @@
 #include "DPN_Propagation.h"
 
 
-using namespace DPeerNodeSpace;
+using namespace DPN::Logs;
 
 namespace DPN_Propagation {
     bool Node::innerCheck() {

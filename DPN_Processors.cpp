@@ -2,6 +2,7 @@
 
 #include <DProfiler.h>
 
+using namespace DPN::Logs;
 namespace DPN_DefaultProcessor {
     //====================================================================================== TextMessage:
     void TextMessage::makeActionLine() {
@@ -133,8 +134,8 @@ namespace DPN_DefaultProcessor {
     DPN_Result SyncChannel::hostRequest(HOST_CALL) {
 
         UNIT_SHADOW_KEY = wChannel.shadowKey();
-        UNIT_FORWARD_STATE = wChannel.localState( DPN_FORWARD );
-        UNIT_BACKWARD_STATE = wChannel.localState( DPN_BACKWARD );
+        UNIT_FORWARD_STATE = wChannel.localState( DPN::FORWARD );
+        UNIT_BACKWARD_STATE = wChannel.localState( DPN::BACKWARD );
         return DPN_SUCCESS;
     }
     DPN_Result SyncChannel::serverSync(SERVER_CALL) {
@@ -150,8 +151,8 @@ namespace DPN_DefaultProcessor {
             DL_ERROR(1, "Bad interface");
             return DPN_FAIL;
         }
-        pi.setRemoteState( DPN_FORWARD, f );
-        pi.setRemoteState( DPN_BACKWARD, b );
+        pi.setRemoteState( DPN::FORWARD, f );
+        pi.setRemoteState( DPN::BACKWARD, b );
 
         return DPN_SUCCESS;
     }
@@ -169,12 +170,12 @@ namespace DPN_DefaultProcessor {
         UNIT_BACKWARD_MODULE_NAME.clearBuffer();
 
         while( pForwardUser ) {
-            __channel_mono_interface f = wChannel.getMonoIf( DPN_FORWARD );
+            __channel_mono_interface f = wChannel.getMonoIf( DPN::FORWARD );
             if( f.badInterface() ) {
                 DL_WARNING(1, "Bad forward interface");
                 break;
             }
-            if( pForwardUser->useChannel( clientUnderlayer().tag(), DPN_FORWARD, f, wForwardContext ) == false ) {
+            if( pForwardUser->useChannel( clientUnderlayer().tag(), DPN::FORWARD, f, wForwardContext ) == false ) {
                 DL_FUNCFAIL(1, "useOutgoingChannel");
             }
             UNIT_FORWARD_MODULE_NAME = pForwardUser->name();
@@ -182,12 +183,12 @@ namespace DPN_DefaultProcessor {
             break;
         }
         while( pBackwardUser ) {
-            __channel_mono_interface b = wChannel.getMonoIf( DPN_BACKWARD );
+            __channel_mono_interface b = wChannel.getMonoIf( DPN::BACKWARD );
             if( b.badInterface() ) {
                 DL_WARNING(1, "Bad backward interface");
                 break;
             }
-            if( pBackwardUser->useChannel( clientUnderlayer().tag(), DPN_BACKWARD, b, wBackwardContext ) == false ) {
+            if( pBackwardUser->useChannel( clientUnderlayer().tag(), DPN::BACKWARD, b, wBackwardContext ) == false ) {
                 DL_FUNCFAIL(1, "useIncomingChannel");
             }
             UNIT_BACKWARD_MODULE_NAME = pBackwardUser->name();
@@ -225,12 +226,12 @@ namespace DPN_DefaultProcessor {
                 DL_ERROR(1, "Can't find module (forward) with name: [%s]", forwardName.c_str());
                 return DPN_FAIL;
             }
-            __channel_mono_interface mono = wChannel.getMonoIf( DPN_FORWARD );
+            __channel_mono_interface mono = wChannel.getMonoIf( DPN::FORWARD );
             if( mono.badInterface() ) {
                 DL_ERROR(1, "Bad forward interface");
                 return DPN_FAIL;
             }
-            if( pForwardUser->useChannel( clientUnderlayer().tag(), DPN_FORWARD, mono, wForwardContext ) == false ) {
+            if( pForwardUser->useChannel( clientUnderlayer().tag(), DPN::FORWARD, mono, wForwardContext ) == false ) {
                 DL_FUNCFAIL(1, "useOutgoingChannel");
                 return DPN_FAIL;
             }
@@ -240,12 +241,12 @@ namespace DPN_DefaultProcessor {
                 DL_ERROR(1, "Can't find module (backward) with name: [%s]", forwardName.c_str());
                 return DPN_FAIL;
             }
-            __channel_mono_interface mono = wChannel.getMonoIf( DPN_BACKWARD );
+            __channel_mono_interface mono = wChannel.getMonoIf( DPN::BACKWARD );
             if( mono.badInterface() ) {
                 DL_ERROR(1, "Bad backward interface");
                 return DPN_FAIL;
             }
-            if( pBackwardUser->useChannel( clientUnderlayer().tag(), DPN_FORWARD, mono, wBackwardContext ) == false ) {
+            if( pBackwardUser->useChannel( clientUnderlayer().tag(), DPN::FORWARD, mono, wBackwardContext ) == false ) {
                 DL_FUNCFAIL(1, "useIncomingChannel");
                 return DPN_FAIL;
             }

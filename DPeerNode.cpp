@@ -5,7 +5,7 @@
 
 
 
-using namespace DPeerNodeSpace;
+using namespace DPN::Logs;
 /*
 DPN_Core::DPN_Core() {
 
@@ -414,8 +414,15 @@ DPN_Catalog *DPN_Core::catalog() {
 
 
 DPeerNode::DPeerNode() : DPN_CORE(true) {}
+
+void DPeerNode::setName(const std::string &name) {
+    data()->setName( name );
+}
 void DPeerNode::start(DPN::Thread::Policy p) {
     data()->createThread( p );
+}
+DPN_FileSystem *DPeerNode::fileSystem() {
+    return extractFileModule( data()->modules() );
 }
 
 
@@ -453,10 +460,16 @@ bool DPeerNode::trcm(const char *command) {
 #define LINE_END break
     do {
 
+        if( LINE_IS("test") ) {
+
+            DL_INFO(1, ">>> DPN test");
+            LINE_END;
+        }
         if(LINE_IS("info")) {
 
         }
         if(LINE_IS("a")) {
+            data()->acceptAll();
 //            connections_core.acceptAll();
         }
         if(LINE_IS("reject")) {
@@ -480,96 +493,102 @@ bool DPeerNode::trcm(const char *command) {
         }
         if(LINE_IS("shu")) {
 
-//            if(connections_core.remotes.empty()) {
-//                DL_ERROR(1, "No clients");
-//                break;
-//            }
-//            DPN_ClientInterface c = connections_core.clients()[0];
-//            c.makeShadowConnection( DXT::UDP );
-//            break;
+            auto clients = data()->clients();
+            if( clients.empty() ) {
+                DL_INFO(1, "No clients");
+                break;
+            }
+            clients[0].makeShadowConnection( DXT::UDP );
+            break;
         }
         if(LINE_IS("fch")) {
 
-//            if(connections_core.remotes.empty()) {
-//                DL_ERROR(1, "No clients");
-//                break;
-//            }
-//            DPN_ClientInterface c = connections_core.clients()[0];
+            auto clients = data()->clients();
+            if( clients.empty() ) {
+                DL_INFO(1, "No clients");
+                break;
+            }
 
-//            auto proc = DPN_PROCS::processor<DPN_PACKETTYPE__RESERVE_CHANNEL>();
-//            proc->setChannel( c.channels()[0] );
-//            proc->setBackwardUser( extractFileModule( connections_core.iGlobalModules ) );
-
-//            c.send( proc );
+            auto proc = DPN_PROCS::processor<DPN_PACKETTYPE__RESERVE_CHANNEL>();
+            proc->setChannel( clients[0].channels()[0] );
+            proc->setBackwardUser( extractFileModule( data()->modules() ) );
+            clients[0].send( proc );
 
             break;
         }
         if(LINE_IS("m")) {
 
-//            auto start = LX_COMMAND.sym_unspecial(base.end, nullptr, ": ");
-//            const char *message = LX_COMMAND.find(start.begin, nullptr, rule_message).begin;
+            auto start = LX_COMMAND.sym_unspecial(base.end, nullptr, ": ");
+            const char *message = LX_COMMAND.find(start.begin, nullptr, rule_message).begin;
 
-//            if( sendMessage(message) == false ) {
-//                DL_FUNCFAIL(1, "sendMessage");
-//                return false;
-//            }
+            auto clients = data()->clients();
+            if( clients.empty() ) {
+                DL_INFO(1, "No clients");
+                break;
+            }
+            clients[0].sendMessage(message);
+
 
             LINE_END;
         }
         if(LINE_IS("sync")) {
 
-//            sync();
+            auto clients = data()->clients();
+            if( clients.empty() ) {
+                DL_INFO(1, "No clients");
+                break;
+            }
+            auto fm = extractFileModule( data()->modules() );
+            if( fm == nullptr ) {
+                DL_BADPOINTER(1, "File Module");
+                break;
+            }
+            auto fmIf = fm->getIf( clients[0] );
+
+            fmIf.sync();
 
             LINE_END;
         }
         if(LINE_IS("catalog")) {
 
-
-//            if( catalog() == nullptr ) {
-//                DL_BADPOINTER(1, "Catalog");
-//                break;
-//            }
-//            if(catalog()->empty()) {
-//                std::cout << "Empty catalog" << std::endl;
-//            } else {
-//                DL_INFO(1, "Catalog: name: [%s] path: [%s] vpath: [%s]",
-//                        catalog()->name().c_str(), catalog()->path().c_str(), catalog()->vpath().c_str());
-
-//                std::cout << catalog()->parseToText(true);
-//            }
-//            LINE_END;
-
+            auto fm = extractFileModule( data()->modules() );
+            if( fm == nullptr ) {
+                DL_BADPOINTER(1, "File Module");
+                break;
+            }
+            if( fm->host().empty() ) {
+                std::cout << "Empty catalog" << std::endl;
+            } else {
+                std::cout << fm->host().parseToText(true);
+            }
+            break;
 
         }
         if(LINE_IS("remote")) {
 
-//            if(connections_core.remotes.empty()) {
-//                DL_ERROR(1, "No clients");
-//                return false;
-//            }
-//            auto client = connections_core.remotes[0];
-//            auto fs = extractFileModule(connections_core.iGlobalModules);
-//            DL_INFO(1, "client tag: [%p] file system: [%p]", client.tag(), fs );
+            auto clients = data()->clients();
+            if( clients.empty() ) {
+                DL_INFO(1, "No clients");
+                break;
+            }
+            auto fm = extractFileModule( data()->modules() );
+            if( fm == nullptr ) {
+                DL_BADPOINTER(1, "File Module");
+                break;
+            }
+            auto fmIf = fm->getIf( clients[0] );
+            if( fmIf.remote() == nullptr ) {
+                DL_BADPOINTER(1, "remote catalog");
+                break;
+            }
 
-//            auto i = fs->getIf( client );
+            DL_INFO(1, "File system: [%p]", fm);
+            if( fmIf.remote()->empty() ) {
+                std::cout << "Empty remote catalog" << std::endl;
+            } else {
+                std::cout << fmIf.remote()->parseToText(true) << std::endl;
+            }
 
-//            if( i.badInterface() ) {
-//                DL_ERROR(1, "Bad interface [remote cmd]");
-//                break;
-//            }
-//            DL_INFO(1, "interface tag: [%p]", i.key());
-
-//            if( i.remote() == nullptr ) {
-//                DL_BADPOINTER(1, "remote catalog");
-//                break;
-//            }
-//            if( i.remote()->empty() ) {
-//                std::cout << "Empty remote catalog" << std::endl;
-//            } else {
-//                std::cout << i.remote()->parseToText(true) << std::endl;
-//            }
-
-//            LINE_END;
         }
         if(LINE_IS("f")) {
 
@@ -579,32 +598,47 @@ bool DPeerNode::trcm(const char *command) {
         }
         if(LINE_IS("fr")) {
 
-//            DArray<int> keyset;
+            DArray<int> keyset;
 
-//            if(list.size() > 1) {
+            if(list.size() > 1) {
 
-//                std::cout << "list:" << std::endl;
-//                FOR_VALUE(list.size(), i) {
-//                    std::cout << list[i] << " ";
-//                }
-//                std::cout << std::endl;
-//                keyset = list;
+                std::cout << "list:" << std::endl;
+                FOR_VALUE(list.size(), i) {
+                    std::cout << list[i] << " ";
+                }
+                std::cout << std::endl;
+                keyset = list;
 
-//            } else if(list.size() == 1) {
-//                std::cout << "single key: " << list[0]
-//                          << std::endl;
-//                keyset.append(list[0]);
-//            }
+            } else if(list.size() == 1) {
+                std::cout << "single key: " << list[0]
+                          << std::endl;
+                keyset.append(list[0]);
+            }
 
-//            auto fs = extractFileModule(connections_core.iGlobalModules);
-//            auto &client = connections_core.remotes[0];
-//            auto i = fs->getIf( client );
+            auto clients = data()->clients();
+            if( clients.empty() ) {
+                DL_INFO(1, "No clients");
+                break;
+            }
+            auto fm = extractFileModule( data()->modules() );
+            if( fm == nullptr ) {
+                DL_BADPOINTER(1, "File Module");
+                break;
+            }
+            auto fmIf = fm->getIf( clients[0] );
+            fmIf.requestFileset( keyset );
 
-//            i.requestFileset( keyset );
-//            break;
+            break;
         }
 
     } while(0);
 
     return true;
+}
+
+bool DPeerNode::share(int port, bool autoaccept) {
+    return data()->sharePort( port, autoaccept );
+}
+bool DPeerNode::connect(const char *address, int port) {
+    return data()->connectTo( address, port );
 }

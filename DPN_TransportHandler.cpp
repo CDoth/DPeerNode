@@ -2,7 +2,7 @@
 #include "__dpeernode_global.h"
 
 #include "DPN_Channel.h"
-using namespace DPeerNodeSpace;
+using namespace DPN::Logs;
 /*
 DPN_FileSlice::DPN_FileSlice() {
     __clear();
@@ -1011,7 +1011,7 @@ namespace DPN_FILESYSTEM {
         }
         return false;
     }
-    static thread_local DPN_SHA256 __global_hashtool;
+    static thread_local DPN::SHA256 __global_hashtool;
     bool Block::hashMe(const std::string &path) {
         iHash.clear();
         if( iFlags & FB__ZEROBLOCK ) return true;
@@ -1148,33 +1148,35 @@ namespace DPN_FILESYSTEM {
 
     DPN_Result IO__FILE::generate(DPN_ExpandableBuffer &buffer) {
         
-        Slice &s = aSendSession[0];
+        DL_INFO(1, "IO__FILE [%p] create file packets...", this);
+//        Slice &s = aSendSession[0];
 
 
-        buffer.dropTo( sizeof(PacketHeader) ) ;
-        PacketHeader *h = reinterpret_cast<PacketHeader*>(buffer.getData());
+//        buffer.dropTo( sizeof(PacketHeader) ) ;
+//        PacketHeader *h = reinterpret_cast<PacketHeader*>(buffer.getData());
 
-        h->size = s.read( buffer );
-        h->key = -1;
-        h->position = 0;
+//        h->size = s.read( buffer );
+//        h->key = -1;
+//        h->position = 0;
 
         return DPN_SUCCESS;
 
     }
     DPN_Result IO__FILE::process(DPN_ExpandableBuffer &buffer) {
 
-        const PacketHeader *h = reinterpret_cast<const PacketHeader*>(buffer.getData());
+        DL_INFO(1, "IO__FILE [%p] parse file packets...", this);
+//        const PacketHeader *h = reinterpret_cast<const PacketHeader*>(buffer.getData());
 
-        if( aReceiveSession.find( h->key) == aReceiveSession.end() ) {
-            DFile f = getReceivingFile( h->key );
-            if( BADFILE(f) ) {
-                DL_ERROR(1, "No receiving file with key [%d]", h->key );
-                return DPN_FAIL;
-            }
-            aReceiveSession[ h->key ] = Writer( f );
-        }
-        Writer &w = aReceiveSession[h->key];
-        w.write( buffer.getData(), h->size, h->position );
+//        if( aReceiveSession.find( h->key) == aReceiveSession.end() ) {
+//            DFile f = getReceivingFile( h->key );
+//            if( BADFILE(f) ) {
+//                DL_ERROR(1, "No receiving file with key [%d]", h->key );
+//                return DPN_FAIL;
+//            }
+//            aReceiveSession[ h->key ] = Writer( f );
+//        }
+//        Writer &w = aReceiveSession[h->key];
+//        w.write( buffer.getData(), h->size, h->position );
         return DPN_SUCCESS;
     }
 

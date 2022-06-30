@@ -7,7 +7,7 @@
 //---------------------------
 #include "DPN_Channel.h"
 #include "DPN_Modules.h"
-#include "DPN_ClientData.h"
+#include "DPN_ClientInterface.h"
 
 
 
@@ -48,8 +48,8 @@ public:
     DArray<DPN_FILESYSTEM::Descriptor> iHostRequest;
     DArray<DPN_FILESYSTEM::Descriptor> iServerRequest;
 
-    __interface_map<int, DPN_FILESYSTEM::Data> __host_interface;
-    __interface_map<int, DPN_FILESYSTEM::Data> __server_interface;
+    DPN::MappedInterfaceMaster<int, DPN_FILESYSTEM::Data> __host_interface;
+    DPN::MappedInterfaceMaster<int, DPN_FILESYSTEM::Data> __server_interface;
 
     DArray<DPN_FILESYSTEM::Channel> aIncomingChannels;
     DArray<DPN_FILESYSTEM::Channel> aOutgoingChannels;
@@ -69,14 +69,14 @@ public:
     }
 
 };
-class DPN_FileSystemInterface : public __dpn_acc_interface< const DPN_ClientTag*, DPN_FileSystemData > {
+class DPN_FileSystemInterface : public DPN::MappedInterface< const DPN_ClientTag*, DPN_FileSystemData > {
 public:
     bool sync();
     bool requestFileset( const DArray<int> &keyset );
 public:
     const DPN_Catalog *remote() const;
 };
-class DPN_FileSystemPrivateInterface : public __dpn_acc_interface< const DPN_ClientTag*, DPN_FileSystemData > {
+class DPN_FileSystemPrivateInterface : public DPN::MappedInterface< const DPN_ClientTag*, DPN_FileSystemData > {
 public:
     DPN_Catalog *remote();
     DFile remoteFile( int key ) const;
@@ -90,12 +90,12 @@ public:
     bool send( DPN_FILESYSTEM::Interface i );
     bool receive( DPN_FILESYSTEM::Interface i );
 public:
-    bool addChannel( __channel_mono_interface mono, dpn_direction direction, const DPN_ExpandableBuffer &context);
+    bool addChannel( __channel_mono_interface mono, DPN::Direction direction, const DPN_ExpandableBuffer &context);
 };
 
 class DPN_FileSystem : public DPN_AbstractModule {
 public:
-    bool useChannel(const DPN_ClientTag *tag, dpn_direction d, __channel_mono_interface mono, const DPN_ExpandableBuffer &context) override;
+    bool useChannel(const DPN_ClientTag *tag, DPN::Direction d, __channel_mono_interface mono, const DPN_ExpandableBuffer &context) override;
 public:
     DPN_FileSystem(const std::string &name);
     DPN_Catalog & host();
@@ -107,8 +107,8 @@ public:
     bool compareCatalogHash( const std::string &hash ) const;
 private:
     std::map< const DPN_ClientTag*, DPN_FileSystemDescriptor> iClientsData;
-    __interface_map<const DPN_ClientTag*, DPN_FileSystemData> im;
-    __interface_map<const DPN_ClientTag*, DPN_FileSystemData> imPrivite;
+    DPN::MappedInterfaceMaster<const DPN_ClientTag*, DPN_FileSystemData> im;
+    DPN::MappedInterfaceMaster<const DPN_ClientTag*, DPN_FileSystemData> imPrivite;
 };
 DPN_FileSystem * extractFileModule(DPN_Modules &modules);
 

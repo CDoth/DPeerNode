@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-using namespace DPeerNodeSpace;
+using namespace DPN::Logs;
 
 
 DPN_Modules::DPN_Modules(bool create) : DWatcher<__modules__>(create) {

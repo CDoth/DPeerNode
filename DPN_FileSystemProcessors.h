@@ -65,7 +65,7 @@ namespace DPN_FileProcessor {
     private:
         void makeActionLine() override;
     private:
-        DPN_SHA256 iHashtool;
+        DPN::SHA256 iHashtool;
     private:
         DECL_UNIT(std::string, UNIT_TOPOLOGY);
         DECL_UNIT(std::string, UNIT_HASH);

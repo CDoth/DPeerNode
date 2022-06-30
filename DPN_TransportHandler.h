@@ -322,7 +322,7 @@ namespace DPN_FILESYSTEM {
         DFile iFile;
         FileMap iFileMap;
     };
-    class Interface : public __dpn_acc_interface<int, Data> {
+    class Interface : public DPN::MappedInterface<int, Data> {
     public:
         friend class Descriptor;
         FileMap fileMap();
@@ -409,7 +409,7 @@ namespace DPN_FILESYSTEM {
         ChannelData( const SystemKernel &k, __channel_mono_interface i ) : SystemKernel(k), ifLockedMono(i) {
             pIO = new IO__FILE(k);
 
-            if( i.key() == DPN_FORWARD ) {
+            if( i.key() == DPN::FORWARD ) {
                 setEntry( pIO );
                 connect( ifLockedMono.io() );
             } else {

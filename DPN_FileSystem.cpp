@@ -1,7 +1,6 @@
 #include "DPN_FileSystem.h"
 #include "DPN_FileSystemProcessors.h"
 
-using namespace DPeerNodeSpace;
 /*
 DPN_RequestNote::DPN_RequestNote() {
     direciton = NO_DIRECTION;
@@ -721,9 +720,10 @@ FileSlice *IO__FILE::__get_slice() {
 }
 */
 
+using namespace DPN::Logs;
 DPN_Catalog __global__host_catalog = DPN_Catalog("Host Catalog");
 
-bool DPN_FileSystem::useChannel(const DPN_ClientTag *tag, dpn_direction direction, __channel_mono_interface mono, const DPN_ExpandableBuffer &context) {
+bool DPN_FileSystem::useChannel(const DPN_ClientTag *tag, DPN::Direction direction, __channel_mono_interface mono, const DPN_ExpandableBuffer &context) {
 
     DL_INFO(1, "tag: [%p] direction: [%d]", tag, direction);
 
@@ -954,7 +954,7 @@ bool DPN_FileSystemPrivateInterface::receive(DPN_FILESYSTEM::Interface fileIf) {
 
     return true;
 }
-bool DPN_FileSystemPrivateInterface::addChannel(__channel_mono_interface mono, dpn_direction direction, const DPN_ExpandableBuffer &context) {
+bool DPN_FileSystemPrivateInterface::addChannel(__channel_mono_interface mono, DPN::Direction direction, const DPN_ExpandableBuffer &context) {
 
     if( badInterface() ) {
         DL_ERROR(1, "Bad interface");
@@ -966,13 +966,13 @@ bool DPN_FileSystemPrivateInterface::addChannel(__channel_mono_interface mono, d
     }
 
     DPN_FILESYSTEM::Channel channel( *inner(), mono, context);
-    if( direction == DPN_FORWARD ) {
+    if( direction == DPN::FORWARD ) {
         inner()->aOutgoingChannels.append( channel );
     } else {
         inner()->aIncomingChannels.append( channel );
     }
 
-//    inner()->fs__activateChannel( channel );
+    inner()->fs__activateChannel( channel );
 
     return true;
 }
@@ -990,6 +990,10 @@ bool DPN_FileSystemData::fs__send( DPN_TransmitProcessor *p ) {
 }
 bool DPN_FileSystemData::fs__activateChannel(DPN_FILESYSTEM::Channel ch) {
 
+    if( DWatcher<DPN_ClientCore>::isEmptyObject() ) {
+        DL_ERROR(1, "Empty watcher");
+        return false;
+    }
     DWatcher<DPN_ClientCore>::data()->putUnit( ch.threadUnit() );
     return true;
 }

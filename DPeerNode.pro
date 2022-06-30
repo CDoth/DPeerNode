@@ -21,7 +21,7 @@ SOURCES += \
     DPN_Catalog.cpp \
     DPN_Channel.cpp \
     DPN_ClientCore.cpp \
-    DPN_ClientData.cpp \
+    DPN_ClientInterface.cpp \
     DPN_ClientUnderLayer.cpp \
     DPN_Core.cpp \
     DPN_DataStream.cpp \
@@ -34,6 +34,7 @@ SOURCES += \
     DPN_MediaSystemProcessors.cpp \
     DPN_Modules.cpp \
     DPN_ModulesIncluder.cpp \
+    DPN_Network.cpp \
     DPN_NodeConnector.cpp \
     DPN_PacketType.cpp \
     DPN_Processors.cpp \
@@ -44,6 +45,7 @@ SOURCES += \
     DPN_TransmitProcessor.cpp \
     DPN_TransmitTools.cpp \
     DPN_TransportHandler.cpp \
+    DPN_Util.cpp \
     DPeerNode.cpp \
     __dpeernode_global.cpp
 
@@ -52,7 +54,7 @@ HEADERS += \
     DPN_Catalog.h \
     DPN_Channel.h \
     DPN_ClientCore.h \
-    DPN_ClientData.h \
+    DPN_ClientInterface.h \
     DPN_ClientUnderLayer.h \
     DPN_Core.h \
     DPN_DataStream.h \
@@ -65,6 +67,7 @@ HEADERS += \
     DPN_MediaSystemProcessors.h \
     DPN_Modules.h \
     DPN_ModulesIncluder.h \
+    DPN_Network.h \
     DPN_NodeConnector.h \
     DPN_PacketType.h \
     DPN_Processors.h \
@@ -75,6 +78,7 @@ HEADERS += \
     DPN_TransmitProcessor.h \
     DPN_TransmitTools.h \
     DPN_TransportHandler.h \
+    DPN_Util.h \
     DPeerNode.h \
     __dpeernode_global.h
 

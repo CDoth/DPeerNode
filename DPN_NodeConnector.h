@@ -4,6 +4,7 @@
 #include <DXT.h>
 #include "DPN_Buffers.h"
 
+using namespace DPN::Network;
 #define RESULT_WRAPPER(R) {result = R; return R;}
 class DPN_NodeConnector {
 public:

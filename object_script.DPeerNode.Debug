@@ -2,7 +2,7 @@ debug/DPN_Buffers.o
 debug/DPN_Catalog.o
 debug/DPN_Channel.o
 debug/DPN_ClientCore.o
-debug/DPN_ClientData.o
+debug/DPN_ClientInterface.o
 debug/DPN_ClientUnderLayer.o
 debug/DPN_Core.o
 debug/DPN_DataStream.o
@@ -15,6 +15,7 @@ debug/DPN_MediaSystem.o
 debug/DPN_MediaSystemProcessors.o
 debug/DPN_Modules.o
 debug/DPN_ModulesIncluder.o
+debug/DPN_Network.o
 debug/DPN_NodeConnector.o
 debug/DPN_PacketType.o
 debug/DPN_Processors.o
@@ -25,5 +26,6 @@ debug/DPN_ThreadUnit.o
 debug/DPN_TransmitProcessor.o
 debug/DPN_TransmitTools.o
 debug/DPN_TransportHandler.o
+debug/DPN_Util.o
 debug/DPeerNode.o
 debug/__dpeernode_global.o

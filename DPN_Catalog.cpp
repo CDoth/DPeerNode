@@ -2,7 +2,7 @@
 #include "__dpeernode_global.h"
 
 
-using namespace DPeerNodeSpace;
+using namespace DPN::Logs;
 
 DPN_Catalog::DPN_Catalog() {
 

@@ -1,22 +1,29 @@
 #include "DPN_ClientCore.h"
 
-
+using namespace DPN::Logs;
 //==========================================================================
-DPN_ClientCore::DPN_ClientCore() : DPN::Thread::ThreadUser(false) {
+namespace DPN::Client {
+Core::Core() {
 
 }
-DPN_ClientCore::DPN_ClientCore(const ThreadUser &sharing) : DPN::Thread::ThreadUser(sharing), wClientUnder( this, true) {
-    DL_INFO(1, "Client core [%p] created", this);
-}
-void DPN_ClientCore::init(DPN_NodeConnector *c) {
-    if( baseInit( c, wClientUnder ) ) {
+Core::Core(DPN::Thread::ThreadUser &threadUser, DPN::Modules &modules) :
+        DPN::Client::MainChannel( threadUser, modules )
+    {}
+    void Core::init(DPN_NodeConnector *c) {
+        if( baseInit( c ) ) {
 
-        DPN::Thread::ThreadUser::putUnit( forward() );
-        DPN::Thread::ThreadUser::putUnit( backward() );
+            DPN::Thread::ThreadUser::putUnit( forward() );
+            DPN::Thread::ThreadUser::putUnit( backward() );
+        }
     }
+    bool Core::send(DPN_TransmitProcessor *p) {
+        return baseSend( p );
+    }
+
+    const DArray<__channel> &Core::shadows() const
+    {
+
+    }
+
 }
-bool DPN_ClientCore::send(DPN_TransmitProcessor *p) {
-    return baseSend( p );
-    return false;
-}
-const DArray<__channel> &DPN_ClientCore::shadows() const { return wClientUnder.shadows(); }
+

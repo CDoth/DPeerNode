@@ -519,76 +519,14 @@ private:
 
 };
 template <>
-class dpn_mediator<__complex1>  {
+class dpn_mediator<DPN::Time::TimeMoment> {
 public:
 
-    template <class ... Args>
-    static void __do(__complex1 &c1, Args && ... a) {
-
-        __tr::transport(c1.c, a...);
-        __tr::transport(c1.d, a...);
-        __tr::transport(c1.v, a...);
-
-    }
-    static void save(const __complex1 &c1, DPN_ExpandableBuffer &b) {
-        __do(const_cast<__complex1&>(c1), b);
-    }
-    static void upload(__complex1 &c1, const DPN_ExpandableBuffer &b, int &p) {
-        __do(c1, b, p);
-    }
-
-};
-template <>
-class dpn_mediator<__complex2>  {
-public:
-
-    template< class ... Args >
-    static void __do(__complex2 &t, Args && ... a) {
-
-        __tr::transport(t.c, a...);
-        __tr::transport(t.s, a...);
-        __tr::transport(t.d, t.d_s, a...);
-        __tr::transport(t.v, a...);
-        __tr::transport(t.str_a, a...);
-        __tr::transport(t.f, a...);
-        __tr::transport(t.a, a...);
-
-    }
-    static void save(const __complex2 &c2, DPN_ExpandableBuffer &b) {
-        __do(const_cast<__complex2&>(c2), b);
-    }
-
-    static void upload(__complex2 &c2, const DPN_ExpandableBuffer &b, int &p) {
-        __do(c2, b, p);
-    }
-};
-template <>
-class dpn_mediator<__complex3> {
-public:
-
-    template < class ... Args >
-    static void __do(__complex3 &t, Args && ... a) {
-        __tr::transport(t.d, a...);
-        __tr::transport(t.v, a...);
-        __tr::transport(t.c1, a...);
-        __tr::transport(t.c2, a...);
-    }
-    static void save(const __complex3 &c3, DPN_ExpandableBuffer &b) {
-        __do(const_cast<__complex3&>(c3), b);
-    }
-    static void upload(__complex3 &c3, const DPN_ExpandableBuffer &b, int &p) {
-        __do(c3, b, p);
-    }
-};
-template <>
-class dpn_mediator<DPN_TimeMoment> {
-public:
-
-    static void save(const DPN_TimeMoment &m, DPN_ExpandableBuffer &b) {
+    static void save(const DPN::Time::TimeMoment &m, DPN_ExpandableBuffer &b) {
         __tr::transport(m.lt_seconds(), b);
         __tr::transport(m.lt_useconds(), b);
     }
-    static void upload(DPN_TimeMoment &m, DPN_ExpandableBuffer &b, int &p) {
+    static void upload(DPN::Time::TimeMoment &m, DPN_ExpandableBuffer &b, int &p) {
         int s, u;
         __tr::transport(s, b, p);
         __tr::transport(u, b, p);
@@ -742,6 +680,7 @@ public:
     }
 };
 
+#define UNIT(INNER_TYPE) __hl_item<INNER_TYPE>
 
 
 class DPN_Content {

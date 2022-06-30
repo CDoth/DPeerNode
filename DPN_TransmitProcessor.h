@@ -8,10 +8,9 @@
 #include "DPN_PacketType.h"
 #include "DPN_ClientUnderLayer.h"
 #include "DPN_Modules.h"
+#include "DPN_Util.h"
 
 
-
-using namespace DPeerNodeSpace;
 class DPN_CrossThreadProcessorList;
 
 
@@ -24,7 +23,6 @@ template <DPN_PacketType> struct DPN_ProcessorTransform {
     static proc_type create() {return nullptr;}
     static proc_type transform(DPN_TransmitProcessor *p) {return p;}
 };
-#define UNIT(INNER_TYPE) __hl_item<INNER_TYPE>
 #define DECL_UNIT(TYPE, NAME) UNIT(TYPE) NAME = content()
 
 class DPN_TransactionSpace;
@@ -160,7 +158,7 @@ static const char * getCallerName( CallerPosition p ) {
         inline bool checkPosition( CallerPosition cp ) const { return iPosition == cp; }
         DPN_Result call( T *obj ) {
 
-            using namespace DPeerNodeSpace;
+            using namespace DPN::Logs;
             if( obj == nullptr ) {
                 DL_BADPOINTER(1, "object");
                 return DPN_FAIL;
@@ -225,7 +223,7 @@ static const char * getCallerName( CallerPosition p ) {
 
         DPN_Result go( CallerPosition cp ) override {
 
-            using namespace DPeerNodeSpace;
+            using namespace DPN::Logs;
 
 //            DL_INFO(1, "line: [%p]", this);
             while( current && !current->checkPosition( cp ) ) {
@@ -272,11 +270,11 @@ static const char * getCallerName( CallerPosition p ) {
 
 
 
-class DPN_TransmitProcessor {
+class DPN_TransmitProcessor : public DPN::Client::Underlayer {
 public:
     friend class DPN_TransactionSpace;
     friend class PacketProcessor;
-    DPN_TransmitProcessor();
+    DPN_TransmitProcessor( DPN::Client::Underlayer &underlayer );
     virtual ~DPN_TransmitProcessor();
 
     DPN_Result action();
@@ -287,12 +285,7 @@ public:
     void clear();
     const DPN_ExpandableBuffer & product() const;
     inline int transaction() const {return iTransactionIndex;}
-    inline bool resendable() {return checkFlag(iInnerFlags, IF__RESENDABLE);}
-    void bindClient( DPN_ClientUnderlayer &u );
-    void bindModules( DPN_Modules m );
-
-    DPN_ClientUnderlayer & clientUnderlayer() { return wClientUnder; }
-    DPN_Modules & modules() { return wModules; }
+    inline bool resendable() {return DPN::checkFlag(iInnerFlags, IF__RESENDABLE);}
 protected:
     template <class Impl>
     ActionLine<Impl> & line() {
@@ -302,8 +295,8 @@ protected:
         return *reinterpret_cast<ActionLine<Impl>*>(pLine);
     }
 private:
-    void makeResendable() { setFlag( iInnerFlags, IF__RESENDABLE); }
-    void disableResendable() { disableFlag( iInnerFlags, IF__RESENDABLE); }
+    void makeResendable() { DPN::setFlag( iInnerFlags, IF__RESENDABLE); }
+    void disableResendable() { DPN::disableFlag( iInnerFlags, IF__RESENDABLE); }
     bool inition();
     void processFault( CallerPosition p );
 protected:
@@ -323,9 +316,7 @@ private:
     enum TransportFlags {
         TF__FAILED = (1 << 0)
     };
-private:
-    DPN_ClientUnderlayer wClientUnder;
-    DPN_Modules wModules;
+
 private:
     uint8_t iUserFlags;
     uint8_t iInnerFlags;
@@ -513,7 +504,7 @@ private:
     __node *__actual;
 
 private:
-    DPN_SimplePool<__node> __node__pool;
+    DPN::Util::SimplePool<__node> __node__pool;
 };
 class DPN_CrossThreadProcessorList : DPN_ProcessorList {
 public:

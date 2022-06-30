@@ -6,6 +6,7 @@
 
 #include "__dpeernode_global.h"
 #include "DPN_ThreadUnit.h"
+#include "DPN_Util.h"
 
 
 
@@ -21,20 +22,20 @@ namespace DPN::Thread {
         DPN::Util::ThreadSafeList<DPN_ThreadUnit> iPool;
         int iSize;
     };
-    class UnitPoolInterface : private DWatcher< __unit_pool__ > {
+    class UnitPool: private DWatcher< __unit_pool__ > {
     public:
-        UnitPoolInterface( bool makeSource );
-        UnitPoolInterface( UnitPoolInterface &share );
+        UnitPool( bool makeSource );
+        UnitPool( UnitPool &share );
 
         DPN_ThreadUnit * get();
         void put( DPN_ThreadUnit *unit );
         void put( const DArray<DPN_ThreadUnit *> &u );
     };
     //----------------------------------------------------------------
-    class __thread_core__ : public UnitPoolInterface {
+    class __thread_core__ : public UnitPool {
     public:
         friend class ThreadCore;
-        __thread_core__( UnitPoolInterface &up );
+        __thread_core__( UnitPool &up );
         ~__thread_core__();
     public:
         void threadcore_run();
@@ -52,18 +53,19 @@ namespace DPN::Thread {
     };
     class ThreadCore : private DWatcher< __thread_core__ > {
     public:
-        ThreadCore( UnitPoolInterface sharingPool );
+        ThreadCore( UnitPool sharingPool );
         std::thread::id id() const;
         void run();
     };
     inline static void start( ThreadCore tc ) { tc.run(); }
     //----------------------------------------------------------------
-    class __thread_user__ : public UnitPoolInterface {
+    class __thread_user__ : public UnitPool {
     public:
         __thread_user__();
         bool isThreadFree() const;
         DArray< ThreadCore > aThreads;
     };
+
     class ThreadUser : DWatcher< __thread_user__ > {
     public:
         ThreadUser( bool makeSource );
@@ -72,7 +74,7 @@ namespace DPN::Thread {
 
         void startStream( Policy p );
     private:
-        UnitPoolInterface poolIf();
+        UnitPool poolIf();
     };
 }
 

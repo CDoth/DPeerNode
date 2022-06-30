@@ -1,6 +1,6 @@
 #include "DPN_TransmitTools.h"
 
-using namespace DPeerNodeSpace;
+using namespace DPN::Logs;
 
 /*
 void DPN_TransmitItem::setData(void *__data) {

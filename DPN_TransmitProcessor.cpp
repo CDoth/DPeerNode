@@ -1,5 +1,6 @@
 #include "DPN_TransmitProcessor.h"
 
+using namespace DPN::Logs;
 ProcessorMapWrapper PROCESSOR_CREATOR;
 //====================================================================================== DPN_TransmitProcessor:
 /*
@@ -230,6 +231,7 @@ void DPN_TransmitProcessor::makeCascades() {
 }
 */
 //====================================================================================== DPN_ProcessorList:
+
 void DPN_ProcessorList::push_back(DPN_TransmitProcessor *proc)  {
 
 
@@ -469,7 +471,7 @@ void DPN_ProcessorPool::__insertType(DPN_PacketType t) {
 
 
 
-DPN_TransmitProcessor::DPN_TransmitProcessor() {
+DPN_TransmitProcessor::DPN_TransmitProcessor(Underlayer &underlayer) : DPN::Client::Underlayer( underlayer ) {
     pLine = nullptr;
     iPosition = DPN_HOST;
 
@@ -500,7 +502,8 @@ DPN_Result DPN_TransmitProcessor::action() {
     case DPN_FAIL:
         DL_INFO(1, "Host step failed");
         processFault( iPosition );
-        setFlag( iTransportFlags, TF__FAILED );
+        DPN::setFlag( iTransportFlags, TF__FAILED );
+
         return DPN_FAIL;
         break;
     case DPN_REPEAT:
@@ -534,7 +537,7 @@ DPN_Result DPN_TransmitProcessor::action(DPN_ExpandableBuffer &packet) {
     iTransportFlags = UNIT_FLAGS.get();
     disableResendable();
 
-    if( checkFlag( iTransportFlags, TF__FAILED) ) {
+    if( DPN::checkFlag( iTransportFlags, TF__FAILED) ) {
         DL_WARNING(1, "Remote side failed");
         processFault( iPosition );
         return DPN_FAIL;
@@ -546,7 +549,7 @@ DPN_Result DPN_TransmitProcessor::action(DPN_ExpandableBuffer &packet) {
     case DPN_FAIL:
         DL_INFO(1, "Server step failed");
         processFault( iPosition );
-        setFlag( iTransportFlags, TF__FAILED );
+        DPN::setFlag( iTransportFlags, TF__FAILED );
         break;
     case DPN_REPEAT:
         break;

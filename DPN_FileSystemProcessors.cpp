@@ -1505,6 +1505,7 @@ DPN_Result DPN_Processor__request_file::serverFault() {
 */
 
 
+using namespace DPN::Logs;
 namespace DPN_FileProcessor {
 
     //================================================================================= Base
@@ -1570,6 +1571,9 @@ namespace DPN_FileProcessor {
             DL_BADPOINTER(1, "File system");
             return DPN_FAIL;
         }
+
+
+
         DPN_FileSystemPrivateInterface i = getInterface( clientUnderlayer().tag() ) ;
         if( i.badInterface() ) {
             DL_ERROR(1, "Bad interface");
@@ -1577,6 +1581,10 @@ namespace DPN_FileProcessor {
         }
         i.unverifyRemote2Host();
         std::string remote_topology = UNIT_TOPOLOGY.get();
+
+        DL_INFO(1, "File system: [%p] client: [%p] topology: [%d]",
+                pFileSystem, clientUnderlayer().tag(), remote_topology.size());
+
         std::string host_topology = i.remote()->sync( remote_topology );
 
         iHashtool.hash_string( host_topology );
@@ -1639,7 +1647,7 @@ namespace DPN_FileProcessor {
             return DPN_FAIL;
         }
 
-        DL_INFO(1, "keyset: size: [%d] array: [%s]", aKeyset.size(), ia2s( aKeyset ).c_str());
+        DL_INFO(1, "keyset: size: [%d] array: [%s]", aKeyset.size(), DPN::ia2s( aKeyset ).c_str());
 
 
         int key = 0;

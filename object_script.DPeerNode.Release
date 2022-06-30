@@ -2,7 +2,7 @@ release/DPN_Buffers.o
 release/DPN_Catalog.o
 release/DPN_Channel.o
 release/DPN_ClientCore.o
-release/DPN_ClientData.o
+release/DPN_ClientInterface.o
 release/DPN_ClientUnderLayer.o
 release/DPN_Core.o
 release/DPN_DataStream.o
@@ -15,6 +15,7 @@ release/DPN_MediaSystem.o
 release/DPN_MediaSystemProcessors.o
 release/DPN_Modules.o
 release/DPN_ModulesIncluder.o
+release/DPN_Network.o
 release/DPN_NodeConnector.o
 release/DPN_PacketType.o
 release/DPN_Processors.o
@@ -25,5 +26,6 @@ release/DPN_ThreadUnit.o
 release/DPN_TransmitProcessor.o
 release/DPN_TransmitTools.o
 release/DPN_TransportHandler.o
+release/DPN_Util.o
 release/DPeerNode.o
 release/__dpeernode_global.o

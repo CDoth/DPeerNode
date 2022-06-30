@@ -21,7 +21,7 @@ public:
 private:
     DPN_AbstractModule *pModule;
     DPN_ExpandableBuffer wSettings;
-    dpn_direction iDirectionType;
+    DPN::Direction iDirectionType;
     MonoChannelState iLocalState;
     MonoChannelState iRemoteState;
 };
@@ -61,15 +61,15 @@ private:
     MonoChannel iForward;
     MonoChannel iBackward;
 };
-class __channel_mono_interface : public __dpn_acc_interface<dpn_direction, __channel_data> {
+class __channel_mono_interface : public DPN::MappedInterface<DPN::Direction, __channel_data> {
 public:
     __channel_mono_interface() {}
     inline DPN_IO::IOContext * io() {return validInterface() ? inner()->pChannel : nullptr;}
 };
-class __channel_private_interface : public __dpn_interface< __channel_data > {
+class __channel_private_interface : public DPN::Interface< __channel_data > {
 public:
-    void setLocalState( dpn_direction d, MonoChannelState s );
-    void setRemoteState( dpn_direction d, MonoChannelState s );
+    void setLocalState( DPN::Direction d, MonoChannelState s );
+    void setRemoteState( DPN::Direction d, MonoChannelState s );
 };
 class __channel : private DWatcher<__channel_data> {
 public:
@@ -77,15 +77,15 @@ public:
     inline bool isValid() const { return this->isCreatedObject(); }
 
     bool init(DPN_NodeConnector *c, const std::string &shadowKey);
-    __channel_mono_interface getMonoIf( dpn_direction d );
+    __channel_mono_interface getMonoIf( DPN::Direction d );
     __channel_private_interface privateInterface();
 public:
-    MonoChannelState localState( dpn_direction d ) const;
-    MonoChannelState remoteState( dpn_direction d ) const;
+    MonoChannelState localState( DPN::Direction d ) const;
+    MonoChannelState remoteState( DPN::Direction d ) const;
     std::string shadowKey() const;
 private:
-    __interface_map<dpn_direction, __channel_data> monoIf;
-    __interface_master<__channel_data> privateIf;
+    DPN::MappedInterfaceMaster<DPN::Direction, __channel_data> monoIf;
+    DPN::InterfaceMaster<__channel_data> privateIf;
 };
 //===================================
 

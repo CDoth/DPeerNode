@@ -1,5 +1,5 @@
 #include "DPN_Core.h"
-using namespace DPeerNodeSpace;
+using namespace DPN::Logs;
 
 /*
 //====================================================================================================== DPN_PeerMeeting
@@ -808,412 +808,50 @@ void DPN_ConnectionsCore::__replan_inner() {
 }
 */
 
-//============================================================ DPN_SharedPort
-
-DPN_SharedPort::DPN_SharedPort(int port, bool autoaccepting) {
-    clear();
-    iPort = port;
-    iAutoaccepting = autoaccepting;
-}
-bool DPN_SharedPort::newConnection() {
-    if(!iOpened) return false;
-    return pConnector ? pConnector->newConnection(iPort) : false;
-}
-DPN_NodeConnector *DPN_SharedPort::accept() {
-
-    if(!iOpened) return nullptr;
-    if( pConnector ) {
-        DPN_NodeConnector *new_connector = pConnector->acceptConnection(iPort);
-        return new_connector;
-    }
-
-    return nullptr;
-}
-DPN_SharedPort::CheckResult DPN_SharedPort::check(DPN_NodeConnector *c) {
-
-    if(!iOpened) return PortClosed;
-
-    PeerAddress a;
-    a.port = c->peerPort();
-    a.address = c->peerAddress();
-
-    if( iConnections == iMaximum ) return MaximumConnections;
-    if(aWhiteList.size()) {
-        if(!aWhiteList.contain(a)) return MissWhiteList;
-    }
-    if(aBlackList.size()) {
-        if(aBlackList.contain(a)) return ContainedInBlackList;
-    }
-
-    return CheckedSuccesfull;
-}
-bool DPN_SharedPort::isOpen() const {
-    return iOpened;
-}
-bool DPN_SharedPort::open() {
-
-    if(iOpened) return true;
-
-    if(pConnector == nullptr) {
-        pConnector = new DPN_NodeConnector(DXT::TCP);
-    }
-    if(pConnector->openPort(iPort)) {
-        DL_INFO(1, "Port [%d] opened", iPort);
-        iOpened = true;
-        return true;
-    }
-
-    return false;
-}
-void DPN_SharedPort::clear() {
-    iPort = -1;
-    iAutoaccepting = false;
-    pConnector = nullptr;
-    iMaximum = -1;
-    iConnections = 0;
-    iOpened = false;
-}
-
-//============================================================
-Connections::WaitingConnection::WaitingConnection() {
-    pConnector = nullptr;
-    iState = WAIT;
-    makeMeetLine();
-}
-Connections::WaitingConnection::~WaitingConnection() {
-
-}
-void Connections::WaitingConnection::close() {
-    if( pConnector ) {
-        pConnector->close();
-    }
-}
-bool Connections::WaitingConnection::isShadow() const {
-    return false;
-}
-DPN_Result Connections::WaitingConnection::innerMeeting() {
-    return iMeetingLine.go();
-}
-DPN_Result Connections::WaitingConnection::sendPacket() {
-//    DPN_CALL_LOG;
-
-    auto r = pConnector->x_send( iMainContent.buffer() );
-
-//    DL_INFO(1, "sb: [%d] buffer: [%d]", pConnector->transportedBytes(),
-//            iMainContent.buffer().size());
-
-    return r;
-}
-DPN_Result Connections::WaitingConnection::receivePacket() {
-//    DPN_CALL_LOG;
-
-    if( pConnector->readable() ) {
-        return pConnector->x_receivePacket();
-    }
-    return DPN_REPEAT;
-}
-void Connections::WaitingConnection::setLocalName(const std::string &name) {
-    UNIT_MEET_NAME = name;
-    iLocalName = name;
-}
-void Connections::WaitingConnection::makeMeetLine() {
-    iMeetingLine << &WaitingConnection::meetPresend
-                 << &WaitingConnection::meetSend
-                 << &WaitingConnection::meetPrereceive
-                 << &WaitingConnection::meetReceive
-                 << &WaitingConnection::meetEnding
-                    ;
-
-    iMeetingLine.setTarget( this );
-}
-DPN_Result Connections::WaitingConnection::meetPresend() {
-//    DPN_CALL_LOG;
-
-    iMeetContent.parseBuffers();
-    return DPN_SUCCESS;
-}
-DPN_Result Connections::WaitingConnection::meetSend() {
-//    DPN_CALL_LOG;
-    return pConnector->x_send( iMeetContent.buffer() );
-}
-DPN_Result Connections::WaitingConnection::meetPrereceive() {
-//    DPN_CALL_LOG;
-
-    UNIT_MEET_NAME.clearBuffer();
-    UNIT_MEET_ATTACH.clearBuffer();
-    pConnector->clearInnerBuffer();
-    iMeetContent.clearBuffer();
-    return DPN_SUCCESS;
-}
-DPN_Result Connections::WaitingConnection::meetReceive() {
-//    DPN_CALL_LOG;
-
-    if( pConnector->readable() ) {
-        return pConnector->x_receivePacket();
-    }
-    return DPN_REPEAT;
-}
-DPN_Result Connections::WaitingConnection::meetEnding() {
-//    DPN_CALL_LOG;
-
-    if( iMeetContent.deparseBuffer( pConnector->buffer() ) == false ) {
-        DL_ERROR(1, "Can't deparse content");
-        return DPN_FAIL;
-    }
-    iRemoteName = UNIT_MEET_NAME.get();
-    iAttachAddress = UNIT_MEET_ATTACH.get();
-
-//    DL_INFO(1, "Meet: name: [%s] attach: [%s]", iRemoteName.c_str(), iAttachAddress.name().c_str());
-    return DPN_SUCCESS;
-}
-//============================================================
-Connections::OutgoingConnection::OutgoingConnection(const std::string &localName, const PeerAddress &address) {
-    setLocalName( localName );
-    iConnectionAddress = address;
-    iConnectionAttepmts = 0;
-    iConnectionMaximumAttemps = 1;
-
-    makeMainLine();
-}
-DPN_Result Connections::OutgoingConnection::process() {
-    return iActionLine.go();
-}
-DPN_Result Connections::OutgoingConnection::connecting() {
-
-//    DPN_CALL_LOG;
-
-    if( pConnector == nullptr ) {
-        pConnector = new DPN_NodeConnector(DXT::TCP);
-    }
-    if( pConnector->connectTo(iConnectionAddress) ) {
-//        DL_INFO(1, "connected: [%s]", pConnector->peerName().c_str());
-        return DPN_SUCCESS;
-    } else if( iConnectionAttepmts++ != iConnectionMaximumAttemps ) {
-        return DPN_REPEAT;
-    }
-    return DPN_FAIL;
-//    return DPN_SUCCESS;
-}
-DPN_Result Connections::OutgoingConnection::waiting(){
-
-//    DPN_CALL_LOG;
-//    makeDialogLine();
-
-    if( pConnector->readable() ) {
-        makeDialogLine();
-        return DPN_SUCCESS;
-    }
-    return DPN_REPEAT;
-
-//    return DPN_SUCCESS;
-}
-DPN_Result Connections::OutgoingConnection::dialog() {
-    return iDialogLine.go();
-}
-DPN_Result Connections::OutgoingConnection::ending() {
-    DPN_CALL_LOG;
-
-    return DPN_SUCCESS;
-}
-DPN_Result Connections::OutgoingConnection::dialog__clear() {
-//    DPN_CALL_LOG;
-
-    iMainContent.clearBuffer();
-    pConnector->clearInnerBuffer();
-    return DPN_SUCCESS;
-}
-DPN_Result Connections::OutgoingConnection::dialog__process_signal() {
-//    DPN_CALL_LOG;
-
-
-    if( iMainContent.deparseBuffer( pConnector->buffer() ) == false ) {
-        DL_ERROR(1, "Can't deparse buffer");
-        return DPN_FAIL;
-    }
-    std::string signal = UNIT_SIGNAL.get();
-    std::string innerSignal;
-    innerSignal.append(pConnector->localName());
-    innerSignal.append(localName());
-//    DL_INFO(1, "presignal: [%s]", innerSignal.c_str());
-    DPN_SHA256 hashtool;
-    hashtool.hash_string( innerSignal );
-    innerSignal = hashtool.get();
-//    DL_INFO(1, "signal hash: [%s] remote signal: [%s]", innerSignal.c_str(), signal.c_str());
-
-    if( signal == innerSignal ) {
-        iState = ACCEPT;
-    } else {
-        DL_ERROR(1, "Bad signal or rejected: [%s]", signal);
-        iState = REJECT;
-        return DPN_FAIL;
-    }
-
-    UNIT_AVATAR = PeerAddress( pConnector->peerPort(), pConnector->peerAddress() );
-    UNIT_VISIBLE = true;
-    UNIT_SHADOW_KEY = "xxx outgoing shadowkey xxx";
-    UNIT_SESSION_KEY = "xxx outgoing session key xxx";
-
-    iMainContent.parseBuffers();
-
-    return DPN_SUCCESS;
-}
-DPN_Result Connections::OutgoingConnection::dialog__end() {
-//    DPN_CALL_LOG;
-
-    if( iMainContent.deparseBuffer( pConnector->buffer() ) == false ) {
-        DL_ERROR(1, "deparsing");
-        return DPN_FAIL;
-    }
-
-    std::string sessionKey = UNIT_SESSION_KEY.get();
-    std::string shadowKey = UNIT_SHADOW_KEY.get();
-    PeerAddress avatar = UNIT_AVATAR.get();
-
-    DL_INFO(1, "session key: [%s] shadow: [%s] avatar: [%s]", sessionKey.c_str(), shadowKey.c_str(), avatar.name().c_str());
-
-    return DPN_SUCCESS;
-}
-void Connections::OutgoingConnection::makeDialogLine() {
-
-    iDialogLine << &OutgoingConnection::dialog__clear
-                << &OutgoingConnection::receivePacket
-
-                << &OutgoingConnection::dialog__process_signal
-                << &OutgoingConnection::sendPacket
-
-                << &OutgoingConnection::dialog__clear
-                << &OutgoingConnection::receivePacket
-
-                << &OutgoingConnection::dialog__end
-                   ;
-    iDialogLine.setTarget( this );
-}
-void Connections::OutgoingConnection::makeMainLine() {
-
-    iActionLine << &OutgoingConnection::connecting
-                << &OutgoingConnection::innerMeeting
-                << &OutgoingConnection::waiting
-                << &OutgoingConnection::dialog
-                << &OutgoingConnection::ending
-                   ;
-    iActionLine.setTarget( this );
-}
-//===========================================================
-Connections::IncomingConnection::IncomingConnection(const std::string &localName, DPN_NodeConnector *connector) {
-    setLocalName( localName );
-    makeMainLine();
-    pConnector = connector;
-}
-DPN_Result Connections::IncomingConnection::process() {
-    return iActionLine.go();
-}
-void Connections::IncomingConnection::accept() {
-    if( iState == WAIT ) iState = ACCEPT;
-}
-void Connections::IncomingConnection::reject() {
-    if( iState == WAIT ) iState = REJECT;
-}
-DPN_Result Connections::IncomingConnection::waiting() {
-
-//    DPN_CALL_LOG;
-    switch (iState) {
-    case WAIT: return DPN_REPEAT;
-    case ACCEPT: makeDialogLine(); return DPN_SUCCESS;
-    case REJECT: return DPN_SUCCESS;
-    default: return DPN_FAIL;
-    }
-    return DPN_FAIL;
-}
-DPN_Result Connections::IncomingConnection::dialog() {
-    return iDialogLine.go();
-}
-DPN_Result Connections::IncomingConnection::ending() {
-    return DPN_SUCCESS;
-}
-DPN_Result Connections::IncomingConnection::dialog__clear() {
-    if( iState == REJECT ) return DPN_FAIL;
-    iMainContent.clearBuffer();
-    pConnector->clearInnerBuffer();
-    return DPN_SUCCESS;
-}
-DPN_Result Connections::IncomingConnection::dialog__make_signal() {
-
-    std::string signal;
-    if( iState == ACCEPT ) {
-        signal.append(pConnector->peerName());
-        signal.append(remoteName());
-
-//        DL_INFO(1, "presignal: [%s]", signal.c_str());
-
-        DPN_SHA256 hashtool;
-        if( hashtool.hash_string( signal ) == false ) {
-            DL_FUNCFAIL(1, "hash_string");
-            return DPN_FAIL;
-        }
-        signal = hashtool.get();
-//        DL_INFO(1, "signal hash: [%s]", signal.c_str());
-
-    } else if ( iState == REJECT ) {
-        signal = "reject";
-    }
-    UNIT_SIGNAL = signal;
-    iMainContent.parseBuffers();
-    return DPN_SUCCESS;
-}
-DPN_Result Connections::IncomingConnection::dialog__make_answer() {
-    if( iMainContent.deparseBuffer( pConnector->buffer() ) == false ) {
-        DL_ERROR(1, "deparsing");
-        return DPN_FAIL;
-    }
-
-    std::string sessionKey = UNIT_SESSION_KEY.get();
-    std::string shadowKey = UNIT_SHADOW_KEY.get();
-    PeerAddress avatar = UNIT_AVATAR.get();
-
-    DL_INFO(1, "session key: [%s] shadow: [%s] avatar: [%s]", sessionKey.c_str(), shadowKey.c_str(), avatar.name().c_str());
-
-    UNIT_SHADOW_KEY = "incoming shadow key";
-    UNIT_SESSION_KEY = "incoming session key";
-    UNIT_AVATAR = PeerAddress( pConnector->peerPort(),
-                               pConnector->peerAddress());
-
-    iMainContent.parseBuffers();
-
-    return DPN_SUCCESS;
-}
-void Connections::IncomingConnection::makeDialogLine() {
-
-    iDialogLine << &IncomingConnection::dialog__make_signal
-                << &IncomingConnection::sendPacket
-
-                << &IncomingConnection::dialog__clear
-                << &IncomingConnection::receivePacket
-
-                << &IncomingConnection::dialog__make_answer
-                << &IncomingConnection::sendPacket
-                   ;
-
-    iDialogLine.setTarget( this );
-}
-void Connections::IncomingConnection::makeMainLine() {
-    iActionLine << &IncomingConnection::innerMeeting
-                << &IncomingConnection::waiting
-                << &IncomingConnection::dialog
-                << &IncomingConnection::ending
-                   ;
-    iActionLine.setTarget( this );
-}
-Connections::OutgoingConnection *Connections::createOutgoingConnection(const std::string &localName, const PeerAddress &a) {
-    return new OutgoingConnection( localName, a );
-}
-Connections::IncomingConnection *Connections::createIncomingConnection(const std::string &localName, DPN_NodeConnector *c) {
-    return new IncomingConnection( localName, c );
-}
 
 //===============================================
-__dpn_core__::__dpn_core__() : DPN::Thread::ThreadUser(true) {
+__dpn_core__::__dpn_core__() : DPN::Thread::ThreadUser(true),
+    DPN::Network::ClientCenterInterface(true),
+    iWp( *this, *this )
+{
 
+    DL_INFO(1, "Create iwp: [%p]", &iWp );
+    DPN::Thread::ThreadUser::putUnit( &iWp );
+
+    dpnAddUDPPorts( 44440, 20 );
+
+    GlobalModule *m = defaultModules;
+
+    DL_INFO(1, "Try create modules...");
+    while( m->creator ) {
+
+        if( !m->unique ) {
+            DPN_AbstractModule *module = m->creator();
+            if( module == nullptr ) {
+                DL_WARNING(1, "Can't create module [%s]", m->name.c_str());
+            } else {
+                DL_INFO(1, "Created module: [%p][%s]", module, m->name.c_str());
+                modules().addModule(module, m->name);
+            }
+        }
+        ++m;
+    }
+}
+void __dpn_core__::setName(const std::string &name) {
+    iWp.setName( name );
 }
 void __dpn_core__::createThread(DPN::Thread::Policy p) {
     DPN::Thread::ThreadUser::startStream( p );
+}
+bool __dpn_core__::sharePort(int port, bool autoaccept) {
+    return iWp.sharePort( port, autoaccept );
+}
+bool __dpn_core__::connectTo(const char *address, int port) {
+    return iWp.connectTo( address, port );
+}
+void __dpn_core__::acceptAll() {
+    iWp.acceptAll();
+}
+DArray<DPN_ClientInterface> __dpn_core__::clients() const {
+    return DPN::Network::ClientCenterInterface::clients();
 }

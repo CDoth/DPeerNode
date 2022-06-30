@@ -1,6 +1,6 @@
 #include "DPN_MainChannel.h"
 
-
+using namespace DPN::Logs;
 //=======================================================================
 PacketProcessor::PacketProcessor() {
 
@@ -152,51 +152,65 @@ bool PacketProcessor::__makePacket(DPN_TransmitProcessor *proc, DPN_ExpandableBu
 }
 
 //=======================================================================
-void __base_mono::fail() {
-    DL_INFO(1, "mono channel [%p] failed. block mirror: [%p]", this, pMirror);
-    if( pMirror ) {
-        pMirror->block();
+
+namespace DPN::Client {
+    void MonoBase::fail() {
+        DL_INFO(1, "mono channel [%p] failed. block mirror: [%p]", this, pMirror);
+        if( pMirror ) {
+            pMirror->block();
+        }
     }
-}
-__base_channel::__base_channel() {}
-bool __base_channel::baseInit(DPN_NodeConnector *c , DPN_ClientUnderlayer &u) {
+    bool __main_channel__::__init(DPN_NodeConnector *connector) {
+        DL_INFO(1, "try init base channel");
 
-    DL_INFO(1, "try init base channel");
+        if( connector == nullptr ) return false;
 
-    if( c == nullptr ) return false;
-
-    wChannel.init( c, "Main" );
-    iBase.init( c->isInitiator(), u );
+        wChannel.init( connector, "Main" );
+        iBase.init( connector->isInitiator() );
 
 
 
-    forwardInterface = wChannel.getMonoIf( DPN_FORWARD );
-    backInterface = wChannel.getMonoIf( DPN_BACKWARD );
+        forwardInterface = wChannel.getMonoIf( DPN::FORWARD );
+        backInterface = wChannel.getMonoIf( DPN::BACKWARD );
 
-    DL_INFO(1, "got interface: [%d] [%d]", backInterface.validInterface(), forwardInterface.validInterface());
+        DL_INFO(1, "got interface: [%d] [%d]", backInterface.validInterface(), forwardInterface.validInterface());
 
-    DL_INFO(1, "back io: [%p] forward io: [%p]", backInterface.io(), forwardInterface.io());
+        DL_INFO(1, "back io: [%p] forward io: [%p]", backInterface.io(), forwardInterface.io());
 
-    iForward.setEntry( &iBase );
-    iForward.connect(  forwardInterface.io() );
+        iForward.setEntry( &iBase );
+        iForward.connect(  forwardInterface.io() );
 
-    iBackward.setEntry( backInterface.io() );
-    iBackward.connect( &iBase );
+        iBackward.setEntry( backInterface.io() );
+        iBackward.connect( &iBase );
 
-    iForward.setMirror( &iBackward );
-    iBackward.setMirror( &iForward );
+        iForward.setMirror( &iBackward );
+        iBackward.setMirror( &iForward );
 
-    return true;
-}
-bool __base_channel::baseSend(DPN_TransmitProcessor *p) {
-
-    if( p == nullptr ) {
-        DL_BADPOINTER(1, "processor");
-        return false;
+        return true;
     }
-    iBase.send( p );
-    return true;
+    bool __main_channel__::__send(DPN_TransmitProcessor *processor) {
+        if( processor == nullptr ) {
+            DL_BADPOINTER(1, "processor");
+            return false;
+        }
+        iBase.send( processor );
+        return true;
+    }
+    MainChannel::MainChannel() {
+
+    }
+    MainChannel::MainChannel(DPN::Thread::ThreadUser &threadUser, DPN::Modules &modules) :
+        dMainChannel(true),
+        DPN::Client::Underlayer( threadUser, modules )
+    {}
+    bool MainChannel::baseInit(DPN_NodeConnector *c) { return dMainChannel::data()->__init( c ); }
+    bool MainChannel::baseSend(DPN_TransmitProcessor *p) { return dMainChannel::data()->__send( p ); }
+    DPN_Propagation::LinearScheme *MainChannel::forward() { return &dMainChannel::data()->iForward; }
+    DPN_Propagation::LinearScheme *MainChannel::backward() { return &dMainChannel::data()->iBackward; }
+
+
+
+
+
 }
-void __base_channel::setModules(DPN_Modules m) {
-    iBase.setModules( m );
-}
+

@@ -1,6 +1,5 @@
 #include "DPN_IO.h"
 
-using namespace DPeerNodeSpace;
 namespace DPN_IO {
     IOContext::IOContext() { }
     IOContext::~IOContext() { }

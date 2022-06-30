@@ -1,4 +1,5 @@
 #include "DPN_Channel.h"
+using namespace DPN::Logs;
 
 MonoChannel::MonoChannel() {
 
@@ -6,7 +7,6 @@ MonoChannel::MonoChannel() {
 bool MonoChannel::reserve(DPN_AbstractModule *module, const DPN_ExpandableBuffer &context) {
 
 }
-using namespace DPeerNodeSpace;
 IO__CHANNEL::IO__CHANNEL(DPN_NodeConnector *c)  {
     pConnector = c;
 }
@@ -154,10 +154,10 @@ bool __channel::init(DPN_NodeConnector *c, const std::string &shadowKey) {
     return data()->init( c, shadowKey );
 }
 
-__channel_mono_interface __channel::getMonoIf(dpn_direction d) {
+__channel_mono_interface __channel::getMonoIf(DPN::Direction d) {
     __channel_mono_interface i;
     DL_INFO(1, "Try get interface [%d]", d);
-     __dpn_acc_interface<dpn_direction, __channel_data> w = monoIf.get( d, *this );
+     DPN::MappedInterface<DPN::Direction, __channel_data> w = monoIf.get( d, *this );
      DL_INFO(1, "got interface for key: [%d] valid: [%d]", d, w.validInterface());
      i.move( w );
      return i;
@@ -168,21 +168,21 @@ __channel_private_interface __channel::privateInterface() {
     i.move( w );
     return i;
 }
-MonoChannelState __channel::localState(dpn_direction d) const {
+MonoChannelState __channel::localState(DPN::Direction d) const {
     if( isEmptyObject() ) {
         DL_ERROR(1, "Empty watcher");
         return MS__RAW;
     }
 
-    return d == DPN_FORWARD ? data()->iForward.iLocalState : data()->iBackward.iLocalState;
+    return d == DPN::FORWARD ? data()->iForward.iLocalState : data()->iBackward.iLocalState;
 }
-MonoChannelState __channel::remoteState(dpn_direction d) const {
+MonoChannelState __channel::remoteState(DPN::Direction d) const {
     if( isEmptyObject() ) {
         DL_ERROR(1, "Empty watcher");
         return MS__RAW;
     }
 
-    return d == DPN_FORWARD ? data()->iForward.iRemoteState : data()->iBackward.iRemoteState;
+    return d == DPN::FORWARD ? data()->iForward.iRemoteState : data()->iBackward.iRemoteState;
 }
 std::string __channel::shadowKey() const {
     if( isEmptyObject() ) {
@@ -194,17 +194,17 @@ std::string __channel::shadowKey() const {
 
 
 
-void __channel_private_interface::setLocalState(dpn_direction d, MonoChannelState s) {
+void __channel_private_interface::setLocalState(DPN::Direction d, MonoChannelState s) {
     if( badInterface() ) {
         DL_ERROR(1, "Bad interface");
         return;
     }
-    d == DPN_FORWARD ? inner()->iForward.iLocalState = s : inner()->iBackward.iLocalState = s;
+    d == DPN::FORWARD ? inner()->iForward.iLocalState = s : inner()->iBackward.iLocalState = s;
 }
-void __channel_private_interface::setRemoteState(dpn_direction d, MonoChannelState s) {
+void __channel_private_interface::setRemoteState(DPN::Direction d, MonoChannelState s) {
     if( badInterface() ) {
         DL_ERROR(1, "Bad interface");
         return;
     }
-    d == DPN_FORWARD ? inner()->iForward.iLocalState = s : inner()->iBackward.iLocalState = s;
+    d == DPN::FORWARD ? inner()->iForward.iLocalState = s : inner()->iBackward.iLocalState = s;
 }

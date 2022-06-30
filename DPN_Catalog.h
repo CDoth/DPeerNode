@@ -66,7 +66,7 @@ public:
     std::string getHash( ) const;
 
 private:
-    mutable DPN_SHA256 iHashtool;
+    mutable DPN::SHA256 iHashtool;
     DAbstractFileSystem *fileSystem;
     DDirectory inner;
 };
