@@ -20,27 +20,29 @@ SOURCES += \
     DPN_Buffers.cpp \
     DPN_Catalog.cpp \
     DPN_Channel.cpp \
+    DPN_Chat.cpp \
+    DPN_ChatProcessors.cpp \
     DPN_ClientCore.cpp \
     DPN_ClientInterface.cpp \
     DPN_ClientUnderLayer.cpp \
     DPN_Core.cpp \
-    DPN_DataStream.cpp \
+    DPN_Crypto.cpp \
     DPN_FileSystem.cpp \
     DPN_FileSystemProcessors.cpp \
     DPN_IO.cpp \
     DPN_MainChannel.cpp \
     DPN_MediaMaster.cpp \
     DPN_MediaSystem.cpp \
-    DPN_MediaSystemProcessors.cpp \
     DPN_Modules.cpp \
     DPN_ModulesIncluder.cpp \
     DPN_Network.cpp \
+    DPN_Network2.cpp \
+    DPN_NetworkProcessors.cpp \
     DPN_NodeConnector.cpp \
     DPN_PacketType.cpp \
     DPN_Processors.cpp \
     DPN_Propagation.cpp \
     DPN_ThreadBridge.cpp \
-    DPN_ThreadMaster.cpp \
     DPN_ThreadUnit.cpp \
     DPN_TransmitProcessor.cpp \
     DPN_TransmitTools.cpp \
@@ -53,27 +55,30 @@ HEADERS += \
     DPN_Buffers.h \
     DPN_Catalog.h \
     DPN_Channel.h \
+    DPN_Chat.h \
+    DPN_ChatProcessors.h \
     DPN_ClientCore.h \
     DPN_ClientInterface.h \
     DPN_ClientUnderLayer.h \
     DPN_Core.h \
-    DPN_DataStream.h \
+    DPN_Crypto.h \
     DPN_FileSystem.h \
     DPN_FileSystemProcessors.h \
     DPN_IO.h \
+    DPN_Interface.h \
     DPN_MainChannel.h \
     DPN_MediaMaster.h \
     DPN_MediaSystem.h \
-    DPN_MediaSystemProcessors.h \
     DPN_Modules.h \
     DPN_ModulesIncluder.h \
     DPN_Network.h \
+    DPN_Network2.h \
+    DPN_NetworkProcessors.h \
     DPN_NodeConnector.h \
     DPN_PacketType.h \
     DPN_Processors.h \
     DPN_Propagation.h \
     DPN_ThreadBridge.h \
-    DPN_ThreadMaster.h \
     DPN_ThreadUnit.h \
     DPN_TransmitProcessor.h \
     DPN_TransmitTools.h \
@@ -94,6 +99,8 @@ INCLUDEPATH += F:/FFMPEG_LAST/include
 INCLUDEPATH += C:/DothProject/DLogs/
 INCLUDEPATH += C:/DothProject/DTL/
 INCLUDEPATH += C:/DothProject/DXT/
+INCLUDEPATH += C:/DothProject/DStreamLight/
+INCLUDEPATH += C:/DothProject/DRSA/
 
 
 

@@ -5,6 +5,11 @@
 
 #include "DPN_IO.h"
 #include "DPN_NodeConnector.h"
+#include "DPN_Interface.h"
+
+namespace DPN::Channel {
+
+}
 
 enum MonoChannelState {
     MS__RAW,
@@ -17,15 +22,13 @@ public:
     friend class __channel;
     friend class __channel_private_interface;
     MonoChannel();
-    bool reserve( DPN_AbstractModule *module, const DPN_ExpandableBuffer &context );
 private:
-    DPN_AbstractModule *pModule;
     DPN_ExpandableBuffer wSettings;
     DPN::Direction iDirectionType;
     MonoChannelState iLocalState;
     MonoChannelState iRemoteState;
 };
-class IO__CHANNEL : public DPN_IO::IOContext {
+class IO__CHANNEL : public DPN::IO::IOContext {
 public:
     IO__CHANNEL(DPN_NodeConnector *c);
     bool init(DPN_NodeConnector *connector);
@@ -41,6 +44,7 @@ private:
     DPN_NodeConnector *pConnector;
     DPN_ExpandableBuffer wBuffer;
 };
+//=========================================================================================================== Data:
 class __channel_data {
 public:
     friend class __channel;
@@ -49,8 +53,7 @@ public:
     __channel_data();
     ~__channel_data();
     bool init( DPN_NodeConnector *c, const std::string &shadowKey );
-    inline bool inited() const {return iKey.size();}
-    bool reserve( DPN_AbstractModule *m, const DPN_ExpandableBuffer &context );
+    inline bool inited() const { return iKey.size() && pChannel; }
 
     inline bool checkKey(const std::string &shadowKey) const {return iKey.size() && iKey == shadowKey;}
     inline const std::string &key() const {return iKey;}
@@ -61,21 +64,29 @@ private:
     MonoChannel iForward;
     MonoChannel iBackward;
 };
-class __channel_mono_interface : public DPN::MappedInterface<DPN::Direction, __channel_data> {
+
+//=========================================================================================================== Interfaces:
+class __channel_mono_interface
+        : public DPN::Interface::InterfaceReference< __channel_data >
+{
 public:
-    __channel_mono_interface() {}
-    inline DPN_IO::IOContext * io() {return validInterface() ? inner()->pChannel : nullptr;}
+    DPN::IO::IOContext *io();
 };
-class __channel_private_interface : public DPN::Interface< __channel_data > {
+class __channel_private_interface
+        : public DPN::Interface::InterfaceReference< __channel_data >
+{
 public:
     void setLocalState( DPN::Direction d, MonoChannelState s );
     void setRemoteState( DPN::Direction d, MonoChannelState s );
 };
-class __channel : private DWatcher<__channel_data> {
+//=========================================================================================================== Descriptor:
+class __channel
+        : private DPN::Interface::DataReference< __channel_data >
+{
 public:
     __channel();
-    inline bool isValid() const { return this->isCreatedObject(); }
 
+    bool isReady() const;
     bool init(DPN_NodeConnector *c, const std::string &shadowKey);
     __channel_mono_interface getMonoIf( DPN::Direction d );
     __channel_private_interface privateInterface();
@@ -84,9 +95,10 @@ public:
     MonoChannelState remoteState( DPN::Direction d ) const;
     std::string shadowKey() const;
 private:
-    DPN::MappedInterfaceMaster<DPN::Direction, __channel_data> monoIf;
-    DPN::InterfaceMaster<__channel_data> privateIf;
+    DPN::Interface::InterfaceMapCenterReference< DPN::Direction, __channel_data> wMonoInterfaces;
+    DPN::Interface::InterfaceCenterReference< __channel_data> wPrivateInterface;
 };
+
 //===================================
 
 

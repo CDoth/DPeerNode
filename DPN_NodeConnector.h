@@ -4,12 +4,12 @@
 #include <DXT.h>
 #include "DPN_Buffers.h"
 
-using namespace DPN::Network;
 #define RESULT_WRAPPER(R) {result = R; return R;}
 class DPN_NodeConnector {
 public:
 //    friend class DPN_AbstractConnectionsCore;
 //    friend class DPN_ConnectionsCore;
+
 
     DPN_NodeConnector(DXT::Type type);
     ~DPN_NodeConnector();
@@ -18,7 +18,7 @@ public:
     bool openPort(int port);
     bool newConnection(int port);
     DPN_NodeConnector * acceptConnection(int port);
-    bool connectTo(const PeerAddress &a);
+    bool connectTo(const DPN::Network::PeerAddress &a);
     bool connectTo(const char *address, int port);
     bool close();
     bool bind(int port);
@@ -37,8 +37,8 @@ public:
     std::string peerName() const;
     std::string localName() const;
 
-    PeerAddress local() const;
-    PeerAddress peer() const;
+    DPN::Network::PeerAddress local() const;
+    DPN::Network::PeerAddress peer() const;
 public:
     //--------------------------------------------------------------------
     int transportedBytes() const;

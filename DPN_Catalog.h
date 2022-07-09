@@ -44,14 +44,11 @@ public:
     const std::string & path() const {return inner.getStdPath();}
     const std::string & vpath() const {return inner.getStdVPath();}
 
-//    inline const DFile & fileByIndex(int index) const {return inner.getFile(index);}
     inline const DFile & file(const std::string &name) const {return inner.getConstFile(name);}
     inline const DFile & constFile(DFileKey key) const {return fileSystem->fileConstRef(key);}
 
-//    const DDirectory * directory(int index) const {return inner.getDirectory(index);}
     const DDirectory * directory(const std::string &name) const {return inner.getDirectory(name);}
 
-//    inline DFile fileByIndex(int index) {return inner.getFile(index);}
     inline DFile file(const std::string &name) {return inner.getFile(name);}
     inline DFile file(DFileKey key) {return fileSystem->file(key);}
 

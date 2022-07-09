@@ -3,10 +3,11 @@
 //==============================================================================================
 //DPN_MediaSystem *extractMediaModule(DPN_Modules &modules) { return reinterpret_cast<DPN_MediaSystem*>(modules.module("Media")); }
 
-GlobalModule defaultModules[] = {
-   DEF_MODULE("FileSystem", DPN_FileSystem, false),
-//   DEFULAT_MODULE("Media", DPN_MediaSystem, false),
-//   DEFULAT_MODULE("DataStream", DPN_DataStream, false),
+DPN::Network::ModuleBinder boundModules[] = {
+    DEF_MODULE("FileModule", DPN_FileSystem),
+    DEF_MODULE("NetworkModule", DPN::Network::NetworkSystem),
+    DEF_MODULE("ChatModule", DPN::Chat::ChatSystem),
 
-    {nullptr, "", false}
+
+    END_MODULE_LIST
 };

@@ -1,13 +1,16 @@
 #ifndef DPN_MODULESINCLUDER_H
 #define DPN_MODULESINCLUDER_H
 #include "DPN_FileSystem.h"
-//#include "DPN_MediaSystem.h"
-#include "DPN_Modules.h"
+#include "DPN_Network.h"
+#include "DPN_Network2.h"
+#include "DPN_Chat.h"
 
-//DPN_MediaSystem * extractMediaModule(DPN_Modules &modules);
 
-#define DEF_MODULE(NAME, TYPE, UNIQUE) { []() -> DPN_AbstractModule *{return reinterpret_cast<DPN_AbstractModule*>(new TYPE(NAME));}, NAME, UNIQUE}
-extern GlobalModule defaultModules[];
+#define DEF_MODULE(NAME, TYPE) \
+{ []( DPN::Network::ClientCenter &cc ) -> DPN_AbstractModule *{return reinterpret_cast<DPN_AbstractModule*>(new TYPE(NAME, cc));}, NAME}
+#define END_MODULE_LIST {nullptr, ""}
+
+extern DPN::Network::ModuleBinder boundModules[];
 
 
 #endif // DPN_MODULESINCLUDER_H

@@ -19,7 +19,7 @@ namespace DPN::Thread {
     //----------------------------------------------------------------
     struct __unit_pool__ {
         __unit_pool__();
-        DPN::Util::ThreadSafeList<DPN_ThreadUnit> iPool;
+        DPN::Util::_ThreadSafeList< DPN::Thread::ThreadUnit > iPool;
         int iSize;
     };
     class UnitPool: private DWatcher< __unit_pool__ > {
@@ -27,9 +27,9 @@ namespace DPN::Thread {
         UnitPool( bool makeSource );
         UnitPool( UnitPool &share );
 
-        DPN_ThreadUnit * get();
-        void put( DPN_ThreadUnit *unit );
-        void put( const DArray<DPN_ThreadUnit *> &u );
+        DPN::Thread::ThreadUnit get();
+        bool put( DPN::Thread::ThreadUnit &unit );
+        void put( const DArray<DPN::Thread::ThreadUnit> &u );
     };
     //----------------------------------------------------------------
     class __thread_core__ : public UnitPool {
@@ -49,7 +49,7 @@ namespace DPN::Thread {
         std::atomic_bool iPlayable;
         uint64_t threadId;
         std::thread::id stdThreadId;
-        DArray<DPN_ThreadUnit*> aAccepted;
+        DArray< DPN::Thread::ThreadUnit > aUnits;
     };
     class ThreadCore : private DWatcher< __thread_core__ > {
     public:
@@ -66,90 +66,21 @@ namespace DPN::Thread {
         DArray< ThreadCore > aThreads;
     };
 
-    class ThreadUser : DWatcher< __thread_user__ > {
+    class ThreadUser
+            : private DWatcher< __thread_user__ >
+    {
     public:
-        ThreadUser( bool makeSource );
-        ThreadUser( const ThreadUser &sharing );
-        void putUnit( DPN_ThreadUnit *unit );
+        using DWatcher< __thread_user__ >::copy;
 
+        ThreadUser() {}
+        ThreadUser( bool makeSource );
+
+        bool putUnit(ThreadUnit unit );
         void startStream( Policy p );
     private:
         UnitPool poolIf();
     };
 }
 
-
-/*
-struct DPN_ThreadBridgeData {
-public:
-
-    friend class DPN_ThreadBridge;
-
-    DPN_ThreadBridgeData();
-
-    void accept();
-    void setNoAcceptMode();
-    void setReplaceMode();
-    bool planDirection(DPN_ThreadUnit *d);
-    void clearPlan();
-
-    void procTasks();
-    void procDirections();
-    void procSingle();
-private:
-    enum DirectionAcceptMode {
-        NO_ACCEPT,
-        REPLACE,
-        __KEEP_REPLACE
-    };
-private:
-
-    bool __hold_direction(DPN_ThreadUnit *d);
-
-
-    std::atomic_bool play;
-    std::atomic_bool pause;
-    std::atomic<DirectionAcceptMode> acceptMode;
-    std::atomic_bool process_tasks;
-    std::mutex mutex;
-    uint64_t threadId;
-    std::thread::id stdThreadId;
-    //-------------------------------
-    DArray<DPN_ThreadUnit*> planed;
-    DArray<DPN_ThreadUnit*> accepted;
-    //------------------------------
-    std::mutex taskMutex;
-};
-class DPN_ThreadBridge : public DWatcher<DPN_ThreadBridgeData> {
-public:
-    DPN_ThreadBridge();
-    friend class DPN_ThreadMaster;
-public:
-    void clearPlan();
-    bool planDirection(DPN_ThreadUnit *d);
-    void replacePlaned();
-
-
-    inline void procSingle() {data()->procSingle();}
-    inline void procDirections() {data()->procDirections();}
-    inline void procTasks() {data()->procTasks();}
-
-
-    inline bool playable() const {return data()->play;}
-    inline bool inPause() const {return data()->pause;}
-
-    int directionsAccepted() const;
-    uint64_t threadId() const;
-
-    void setProcessTasks(bool state) {data()->process_tasks = state;}
-
-
-    inline bool process_tasks() const {return data()->process_tasks;}
-private:
-    void start();
-
-};
-
-*/
 
 #endif // DPN_THREADBRIDGE_H

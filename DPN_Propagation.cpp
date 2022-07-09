@@ -24,16 +24,19 @@ namespace DPN_Propagation {
     bool LinearScheme::work() {
         return propagate();
     }
-    bool LinearScheme::setEntry(DPN_IO::IOContext *io) {
+    bool LinearScheme::setEntry(DPN::IO::IOContext *io) {
         if( io == nullptr ) {
+            DL_BADPOINTER(1, "io");
             return false;
         }
         iEntry.set( io );
         return true;
     }
-    bool LinearScheme::connect(DPN_IO::IOContext *io) {
+    bool LinearScheme::connect(DPN::IO::IOContext *io) {
 
         if( iEntry.isValid() == false || io == nullptr ) {
+            DL_BADVALUE(1, "invalid entry [%d] or bad io [%p]",
+                        iEntry.isValid(), io);
             return false;
         }
         Node node(io);
@@ -70,6 +73,15 @@ namespace DPN_Propagation {
 
 
         DL_INFO(1, "linear: [%p] entry: [%p] line size: [%d]", this, iEntry.io(), iLine.size());
+
+        if( iLine.empty() ) {
+            DL_ERROR(1, "Empty line");
+            return false;
+        }
+        if( iEntry.io() == nullptr ) {
+            DL_ERROR(1, "No entry");
+            return false;
+        }
         auto b = iLine.begin();
         auto e = iLine.end();
         Node *__target = e-1;

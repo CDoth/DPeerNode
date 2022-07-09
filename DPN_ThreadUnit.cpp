@@ -1,7 +1,7 @@
 #include "DPN_ThreadUnit.h"
 
 
-//-------------------------------------------------------------------- DPN_Direction
+/*
 DPN_ThreadUnit::DPN_ThreadUnit() {
     inThread = false;
     blocked = false;
@@ -30,10 +30,54 @@ bool DPN_ThreadUnit::unitProc() {
 void DPN_ThreadUnit::block() {
     blocked = true;
 }
+*/
 
 
 
+using namespace DPN::Logs;
+namespace DPN::Thread {
+    AbstractThreadUnit::AbstractThreadUnit() {
+        inThread = false;
+        blocked = false;
+    }
+    AbstractThreadUnit::~AbstractThreadUnit() {}
+    void AbstractThreadUnit::block() {
+        blocked = true;
+    }
+    void AbstractThreadUnit::kick() {
+        threadKick();
+        inThread = false;
+        blocked = false;
+    }
+    bool AbstractThreadUnit::unitProc() {
+        if( work() == false ) {
+            fail();
+            return false;
+        }
+        return true;
+    }
+    bool AbstractThreadUnit::threadInjection() {
+        return true;
+    }
+    void AbstractThreadUnit::fail() { }
+    void AbstractThreadUnit::threadKick() { }
+    //========================================================== ThreadUnit
+    void ThreadUnit::block() {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "Empty watcher");
+            return;
+        }
+        return data()->block();
+    }
+    void ThreadUnit::kick() {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "Empty watcher");
+            return;
+        }
+        return data()->kick();
+    }
 
+}
 
 
 

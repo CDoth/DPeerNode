@@ -2,236 +2,162 @@
 
 using namespace DPN::Logs;
 ProcessorMapWrapper PROCESSOR_CREATOR;
-//====================================================================================== DPN_TransmitProcessor:
-/*
-thread_local __action_line<DPN_TransmitProcessor> DPN_TransmitProcessor::iGlobalSendLine;
-thread_local __action_line<DPN_TransmitProcessor> DPN_TransmitProcessor::iGlobalReceiveLine;
 
-
-DPN_TransmitProcessor::DPN_TransmitProcessor() {
-
-    iFlags = 0;
-    iResendFlag = false;
-    content.setTotalSizeParsing( false );
-    makeCascades();
-}
-DPN_TransmitProcessor::~DPN_TransmitProcessor() {
+//====================================================================================== PacketProcessor:
+PacketProcessor::PacketProcessor()
+{}
+PacketProcessor::PacketProcessor(Underlayer ul)
+    : DPN::Client::Underlayer(ul)
+{
 
 }
-DPN_Result DPN_TransmitProcessor::sendCascade() {
-    return iSendCascade.go();
-}
-DPN_Result DPN_TransmitProcessor::receiveCascade() {
-    return iReceiveCascade.go();
-}
-//------------------------------------------------------------------
-DPN_Result DPN_TransmitProcessor::sendPrepare() {
+void PacketProcessor::init(bool initiator) {
 
-//    INFO_LOG;
+    int minimum = initiator ? 1 : (INT_MAX / 2) + 1;
+    iSpace.setMinimumIndex( minimum );
+    DL_INFO(1, "initiator: [%d] minimum: [%d]", initiator, minimum);
+}
+void PacketProcessor::send(DPN_TransmitProcessor *p) {
 
-    if( checkFlag(PF__FAIL) ) {
-        DL_INFO(1, "sending in FAIL mode");
+//    DL_INFO(1, "PacketProcessor send: processor: [%p]", p);
+
+//    DL_INFO( 1, "binding...");
+    p->bind( *this );
+//    DL_INFO( 1, "register...");
+    iSpace.registerTransaction( p );
+//    DL_INFO( 1, "append to queue...");
+    iBackQueue.push_back( p );
+//    DL_INFO( 1, "ready to send!");
+
+}
+DPN_Result PacketProcessor::generate(DPN_ExpandableBuffer &b) {
+
+//    DL_INFO(1, "io_base: [%p]", this);
+
+    if( !iBackQueue.empty() ) { iBackQueue.moveTo(iQueue); }
+    auto p = iQueue.getActual();
+    if(p == nullptr) return DPN_SUCCESS;
+
+//    DL_INFO(1, "Get actual processor to send: [%p]", p);
+
+    if( p->resendable() ) {
+        DL_INFO(1, "Resendable processor: [%p]", p);
+        __makePacket( p, b );
+        iQueue.popActual();
         return DPN_SUCCESS;
     }
-//    bool isGenerator = checkFlag(PF__GENERATOR);
-//    bool snakeMode = checkFlag(PF__SNAKEMODE);
+    switch ( p->action() ) {
 
-//    DL_INFO(1, "proc: [%p] is generator: [%d] snake: [%d] fail: [%d] flags: [%d]", this, isGenerator, snakeMode, checkFlag(PF__FAIL), iFlags);
-//    if( !isGenerator && !snakeMode ) return DPN_SUCCESS;
+    case DPN_FAIL:
+        DL_INFO(1, "send action fail");
+        p->clear();
+        iQueue.popActual();
+        DPN_PROCS::returnProcessor(p);
+        break;
+    case DPN_SUCCESS:
 
-    DPN_Result r;
-    r = sendPrefix();
-    if( r == DPN_FAIL ) {
-        setFlag(PF__FAIL);
-        return failureProcessing();
+//        DL_INFO(1, "send cascade done: product size: [%d]",
+//                p->product().size());
+
+        __makePacket( p, b );
+        if( !p->resendable() ) {
+            p->clear();
+            DPN_PROCS::returnProcessor(p);
+        }
+        iQueue.popActual();
+        break;
+    case DPN_REPEAT:
+//        p->repeat();
+//        iQueue.skip();
+        break;
+    default:break;
     }
+
+
     return DPN_SUCCESS;
 }
-DPN_Result DPN_TransmitProcessor::send() {
+DPN_Result PacketProcessor::process(DPN_ExpandableBuffer &b) {
 
+    if( b.empty() ) return DPN_SUCCESS;
+    DL_INFO(1, "io_base: [%p] data size: [%d]", this, b.size());
 
-//    INFO_LOG;
+//    b.print();
 
-//    if( checkFlag(PF__DIALOG_OVER) ) {
-//        disableFlag(PF__DIALOG_OVER);
-//        return DPN_SUCCESS;
-//    }
-
-    UNIT_FLAGS = iFlags;
-//    content.reservePrefix(1);
-    content.parseBuffers();
-//    content.setPrefix(me(), 0);
-
-
-
-//    if( clientContext.connector() == nullptr ) {
-//        DL_BADPOINTER(1, "connector");
-//        return DPN_FAIL;
-//    }
-//    if( clientContext.connector()->x_send(content.buffer()) == DPN_FAIL ) {
-//        return DPN_FAIL;
-//    }
-//    content.clearBuffer();
-    return DPN_SUCCESS;
-}
-DPN_Result DPN_TransmitProcessor::sendSuffix() {
-
-//    INFO_LOG
-    return sendReaction();
-    return DPN_SUCCESS;
-}
-//------------------------------------------------------------------
-DPN_Result DPN_TransmitProcessor::receivePrepare() {
-
-//    INFO_LOG
-
-//    if( content.deparseBuffer(threadContext.buffer()) == false ) {
-//        DL_FUNCFAIL(1, "deparseBuffer");
-//        return DPN_FAIL;
-//    }
-
-    iFlags = UNIT_FLAGS.get();
-//    inverseFlag(PF__GENERATOR);
-//    int tri = UNIT_TRANSACTION.get();
-
-//    DL_INFO(1, "flags: [%d] {check generator: [%d] fail: [%d] snake: [%d] }transaction: [%d]",
-//            iFlags, checkFlag(PF__GENERATOR), checkFlag(PF__FAIL), checkFlag(PF__SNAKEMODE), tri);
-
-
-//    threadContext.buffer().clear();
-
-    return receivePrefix();
-}
-DPN_Result DPN_TransmitProcessor::receive() {
-//    INFO_LOG
-    return DPN_SUCCESS;
-}
-DPN_Result DPN_TransmitProcessor::receiveSuffix() {
-
-//    INFO_LOG;
-    if( checkFlag(PF__FAIL) ) {
-        DL_INFO(1, "Receive packet in FAIL mode");
-        failureProcessing();
+    if( (size_t)b.size() < sizeof (__packet_header2) ) {
+        DL_ERROR(1, "Bad packet size: [%d]", b.size());
         return DPN_FAIL;
     }
+    const __packet_header2 *h = reinterpret_cast<const __packet_header2*>( b.getData() );
+    DL_INFO(1, "header: type: [%s] transaction: [%d]",
+            packetTypeName( h->type ),  h->transaction);
 
-//    bool isGenerator = checkFlag(PF__GENERATOR);
-//    bool snakeMode =  checkFlag(PF__SNAKEMODE);
-//    DL_INFO(1, "is generator: [%d] snake mode: [%d]", isGenerator, snakeMode);
-//    if( isGenerator && !snakeMode ) return DPN_SUCCESS;
-
-    DPN_Result r = receiveReaction();
-    if( r == DPN_FAIL ) {
-        setFlag(PF__FAIL);
-        return failureProcessing();
+    DPN_TransmitProcessor *current = nullptr;
+    if( (current = iSpace.transaction( h->transaction )) == nullptr ) {
+//        DL_INFO(1, "No transaction [%d], register it", h->transaction);
+        if( (current = iSpace.registerTransaction(h->type, h->transaction)) == nullptr ) {
+            DL_ERROR(1, "Can't register transaction [%d]", h->transaction);
+            return DPN_FAIL;
+        }
+        current->bind( *this );
+        current->inition();
     }
-    return r;
-}
-DPN_Result DPN_TransmitProcessor::receiveResender() {
-//    INFO_LOG;
-    if( resendPredicat() ) resend();
+    DL_INFO(1, "current processor: [%p]", current);
+
+    if( current ) {
+
+
+        DPN_ExpandableBuffer packet;
+        packet.copy( b.getData() + sizeof(__packet_header2), b.size() - sizeof(__packet_header2));
+//        packet.print();
+//        DL_INFO(1, "data size: [%d] header2 size: [%d] packet size: [%d]",
+//                b.size(), sizeof(__packet_header2), packet.size());
+
+
+        switch ( current->action( packet ) ) {
+        case DPN_FAIL: break;
+        case DPN_SUCCESS:
+//            DL_INFO(1, "current process [%p] done", current);
+            if( current->resendable() ) {
+                __resend( current );
+            } else {
+                current->clear();
+                DPN_PROCS::returnProcessor( current );
+            }
+
+            break;
+        case DPN_REPEAT: break;
+        }
+    }
     return DPN_SUCCESS;
 }
-//+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-void DPN_TransmitProcessor::repeat() {
-//    INFO_LOG
-    repeatProcessor();
-    iResendFlag = false;
+bool PacketProcessor::__resend(DPN_TransmitProcessor *p) {
+//    DL_INFO(1, "Resend processor: [%p]", p);
+    iBackQueue.push_back( p );
+    return true;
 }
-void DPN_TransmitProcessor::clear() {
-//    INFO_LOG
-    clearProcessor();
+bool PacketProcessor::__makePacket(DPN_TransmitProcessor *proc, DPN_ExpandableBuffer &b) {
 
-    iSendCascade.restart();
-    iReceiveCascade.restart();
+    __packet_header h;
+    h.size = proc->product().size() + sizeof(__packet_header) - sizeof(uint32_t);
+    h.type = proc->me();
+    h.transaction = proc->transaction();
 
-    initionTime.clear();
-    packet_buffer.clear();
 
-//    pTransaction = nullptr;
-    iFlags = 0;
-    iResendFlag = false;
-    UNIT_TRANSACTION = -1;
-    UNIT_FLAGS = 0;
 
-}
-bool DPN_TransmitProcessor::complete() {
+//    DPN_ExpandableBuffer packet;
+
+    b.clear();
+    b.appendValue( h );
+    b.append( proc->product() );
+
+//    DL_INFO(1, "make packet: size: [%d] type: [%s] transaction: [%d] packet size: [%d]",
+//            h.size, packetTypeName(h.type), h.transaction, b.size());
+
+//    b.print();
 
     return true;
 }
-
-//void DPN_TransmitProcessor::inition(DPN_ClientContext &cc) {
-////    INFO_LOG
-//    clientContext = cc;
-//    initionTime.fixTime();
-//    iSendCascade.restart();
-//    iReceiveCascade.restart();
-//    clearFlags();
-//    setFlag(PF__GENERATOR);
-//    postInition();
-//    iSendCascade.setTarget(this);
-//    iReceiveCascade.setTarget(this);
-//}
-void DPN_TransmitProcessor::postInition() {}
-
-const DPN_ExpandableBuffer &DPN_TransmitProcessor::product() const {
-    return content.buffer();
-}
-
-bool DPN_TransmitProcessor::resendPredicat() {
-
-//    INFO_LOG;
-//    DL_INFO(1, "Default resend predicat...");
-//    if( !checkFlag(PF__GENERATOR) ) {
-//        DL_INFO(1, "SERVER DEFAULT RESEND: fail: [%d]", checkFlag(PF__FAIL));
-//        return true;
-//    }
-//    auto tr = useTransaction();
-//    if( tr == nullptr ) {
-//        DL_BADPOINTER(1, "transaction");
-//        return false;
-//    }
-//    if( tr->line() == nullptr ) {
-//        DL_ERROR(1, "No line in transaction");
-//        return false;
-//    }
-//    if( tr->line()->lastResult() == DPN_SUCCESS && tr->line()->isOver() ) {
-////        setFlag(PF__DIALOG_OVER);
-//        DL_INFO(1, "NO RESEND");
-//        return false;
-//    }
-//    if( tr->line()->lastResult() == DPN_FAIL ) {
-////        setFlag(PF__DIALOG_OVER);
-//        DL_INFO(1, "RESEND WITH FAIL");
-//    }
-    return true;
-}
-
-void DPN_TransmitProcessor::makeCascades() {
-
-    if( iGlobalSendLine.empty() ) {
-        iGlobalSendLine << &DPN_TransmitProcessor::sendPrepare
-                     << &DPN_TransmitProcessor::send
-                     << &DPN_TransmitProcessor::sendSuffix
-                        ;
-    }
-
-    if( iGlobalReceiveLine.empty() ) {
-        iGlobalReceiveLine << &DPN_TransmitProcessor::receivePrepare
-                        << &DPN_TransmitProcessor::receive
-                        << &DPN_TransmitProcessor::receiveSuffix
-                        << &DPN_TransmitProcessor::receiveResender
-                           ;
-    }
-    iSendCascade.setLine(iGlobalSendLine);
-    iReceiveCascade.setLine(iGlobalReceiveLine);
-
-    iSendCascade.setTarget( this );
-    iReceiveCascade.setTarget( this );
-}
-*/
 //====================================================================================== DPN_ProcessorList:
-
 void DPN_ProcessorList::push_back(DPN_TransmitProcessor *proc)  {
 
 
@@ -342,7 +268,7 @@ void DPN_CrossThreadProcessorList::moveTo(DPN_ProcessorList &list) {
     std::lock_guard<std::mutex> lock(__mutex);
     list.move(*this);
 }
-//=============================================================================================== DPN_TransactionMaster
+//=============================================================================================== DPN_TransactionSpace
 DPN_TransactionSpace::DPN_TransactionSpace() {
     iMinimumIndex = 1;
 }
@@ -367,7 +293,7 @@ void DPN_TransactionSpace::registerTransaction(DPN_TransmitProcessor *t) {
 
     //    return t;
 }
-DPN_TransmitProcessor *DPN_TransactionSpace::registerTransaction(DPN_PacketType t, int key) {
+DPN_TransmitProcessor *DPN_TransactionSpace::registerTransaction(PacketType t, int key) {
 
     if( iMap.find(key) != iMap.end() ) {
         DL_ERROR(1, "Transaction with key [%d] already registered", key);
@@ -394,7 +320,7 @@ bool DPN_TransactionSpace::isValidKey(int key) const {
     return iMap.find(key) == iMap.end();
 }
 //====================================================================================  ProcessorMapWrapper
-DPN_TransmitProcessor *ProcessorMapWrapper::create(DPN_PacketType t) {
+DPN_TransmitProcessor *ProcessorMapWrapper::create(PacketType t) {
     if( map.find(t) == map.end() ) {
         DPN_GET_PRC_MAP(PROCESSOR_CREATOR);
         if( map.find(t) == map.end() ) {
@@ -405,12 +331,12 @@ DPN_TransmitProcessor *ProcessorMapWrapper::create(DPN_PacketType t) {
     return map[t]();
 //    return (map.find(t) == map.end()) ? nullptr : map[t]();
 }
-void ProcessorMapWrapper::fill(DPN_PacketType t, CREATE_PROCESSOR callback) {
+void ProcessorMapWrapper::fill(PacketType t, CREATE_PROCESSOR callback) {
     if(map.find(t) == map.end()) {
         map[t] = callback;
     }
 }
-ProcessorMapFiller::ProcessorMapFiller(DPN_PacketType t, CREATE_PROCESSOR callback, ProcessorMapWrapper *out) {
+ProcessorMapFiller::ProcessorMapFiller(PacketType t, CREATE_PROCESSOR callback, ProcessorMapWrapper *out) {
 
     static ProcessorMapWrapper wrapper;
 
@@ -434,7 +360,7 @@ DPN_ProcessorPool::DPN_ProcessorPool() {
 //            }
 //        }
 }
-DPN_TransmitProcessor *DPN_ProcessorPool::getProcessor(DPN_PacketType t) {
+DPN_TransmitProcessor *DPN_ProcessorPool::getProcessor(PacketType t) {
 
 //    if(map.find(t) == map.end()) {
 //        DL_ERROR(1, "Bad packet type: [%d:%s]", t, packetTypeName(t));
@@ -463,15 +389,11 @@ bool DPN_ProcessorPool::returnProcessor(DPN_TransmitProcessor *proc) {
     f->second.insertProcessor(proc);
     return true;
 }
-void DPN_ProcessorPool::__insertType(DPN_PacketType t) {
+void DPN_ProcessorPool::__insertType(PacketType t) {
     if( map.find(t) == map.end() ) map[t] = DPN_TransmitProcessorMicroPool();
 }
 
-
-
-
-
-DPN_TransmitProcessor::DPN_TransmitProcessor(Underlayer &underlayer) : DPN::Client::Underlayer( underlayer ) {
+DPN_TransmitProcessor::DPN_TransmitProcessor() : DPN::Client::Underlayer() {
     pLine = nullptr;
     iPosition = DPN_HOST;
 
@@ -486,6 +408,11 @@ DPN_TransmitProcessor::DPN_TransmitProcessor(Underlayer &underlayer) : DPN::Clie
 DPN_TransmitProcessor::~DPN_TransmitProcessor() {
 
 }
+void DPN_TransmitProcessor::bind(Underlayer underLayer) {
+
+
+    this->Underlayer::operator=( underLayer );
+}
 DPN_Result DPN_TransmitProcessor::action() {
 
     if( pLine == nullptr ) {
@@ -496,11 +423,11 @@ DPN_Result DPN_TransmitProcessor::action() {
 
 
     disableResendable();
-//    DL_INFO(1, "do host action (step: [%d])", pLine->step());
+    DL_INFO(1, "do [%s] action (step: [%d])", getCallerName( iPosition ), pLine->step());
     r = pLine->go( iPosition );
     switch (r) {
     case DPN_FAIL:
-        DL_INFO(1, "Host step failed");
+        DL_INFO(1, "[%s] step failed", getCallerName( iPosition ));
         processFault( iPosition );
         DPN::setFlag( iTransportFlags, TF__FAILED );
 
@@ -513,14 +440,14 @@ DPN_Result DPN_TransmitProcessor::action() {
     }
 
     if( pLine->isOver() == false ) {
-//        DL_INFO(1, "Host line continue: resend (step: [%d])", pLine->step());
+        DL_INFO(1, "Host line continue: resend (step: [%d])", pLine->step());
         makeResendable();
     }
 
 
 
     iContent.parseBuffers();
-//    DL_INFO(1, "action result: [%d] parsed data: [%d]", r, iContent.buffer().size());
+    DL_INFO(1, "[%s] action result: [%d] parsed data: [%d]", getCallerName( iPosition ), r, iContent.buffer().size());
 
 
     return DPN_SUCCESS;
@@ -543,7 +470,7 @@ DPN_Result DPN_TransmitProcessor::action(DPN_ExpandableBuffer &packet) {
         return DPN_FAIL;
     }
     DPN_Result r;
-//    DL_INFO(1, "do [%s] action (step: [%d])",  getCallerName(iPosition), pLine->step());
+    DL_INFO(1, "do [%s] action (step: [%d])",  getCallerName(iPosition), pLine->step());
     r = pLine->go( iPosition );
     switch (r) {
     case DPN_FAIL:
@@ -556,10 +483,10 @@ DPN_Result DPN_TransmitProcessor::action(DPN_ExpandableBuffer &packet) {
     case DPN_SUCCESS:
         break;
     }
-//    DL_INFO(1, "action result: [%d]", r);
+    DL_INFO(1, "action result: [%d]", r);
 
     if( pLine->isOver() == false ) {
-//        DL_INFO(1, "Server line continue: resend (step: [%d])", pLine->step());
+        DL_INFO(1, "Server line continue: resend (step: [%d])", pLine->step());
         makeResendable();
         UNIT_FLAGS = iTransportFlags;
         iContent.parseBuffers();
@@ -572,16 +499,11 @@ void DPN_TransmitProcessor::clear() {
     if( pLine ) {
         pLine->restart();
     }
+    iPosition = DPN_HOST;
 }
 
 const DPN_ExpandableBuffer &DPN_TransmitProcessor::product() const {
     return iContent.buffer();
-}
-void DPN_TransmitProcessor::bindClient(DPN_ClientUnderlayer &u) {
-    wClientUnder = u;
-}
-void DPN_TransmitProcessor::bindModules(DPN_Modules m) {
-    wModules = m;
 }
 bool DPN_TransmitProcessor::inition() {
     if( pLine == nullptr ) {
@@ -598,6 +520,7 @@ bool DPN_TransmitProcessor::inition() {
 void DPN_TransmitProcessor::processFault(CallerPosition p) {
     return p == DPN_HOST ? fault( HOST_CALL() ) : fault( SERVER_CALL() );
 }
+
 void DPN_TransmitProcessor::injection(){}
 void DPN_TransmitProcessor::fault(SERVER_CALL) {}
 void DPN_TransmitProcessor::fault(HOST_CALL) {}

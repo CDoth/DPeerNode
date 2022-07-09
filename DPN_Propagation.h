@@ -12,12 +12,12 @@ namespace DPN_Propagation {
     public:
         friend class LinearScheme;
 
-        Node( DPN_IO::IOContext *io = nullptr ) : IO(io), iGenerator(false) {}
-        void set( DPN_IO::IOContext *io ) { IO = io; }
+        Node( DPN::IO::IOContext *io = nullptr ) : IO(io), iGenerator(false) {}
+        void set( DPN::IO::IOContext *io ) { IO = io; }
         void makeGenerator() { iGenerator = true; }
         inline bool isValid() const { return IO; }
 
-        const DPN_IO::IOContext *io() const {return IO;}
+        const DPN::IO::IOContext *io() const {return IO;}
 
     private:
         bool started();
@@ -27,15 +27,15 @@ namespace DPN_Propagation {
         inline DPN_Result generate(DPN_ExpandableBuffer &b) {return IO->generate(b);}
         inline DPN_Result process(DPN_ExpandableBuffer &b) {return IO->process(b);}
     private:
-        DPN_IO::IOContext *IO;
+        DPN::IO::IOContext *IO;
         bool iGenerator;
     };
-    class LinearScheme : public DPN_ThreadUnit {
+    class LinearScheme : public DPN::Thread::AbstractThreadUnit {
     public:
         LinearScheme();
         bool work() override;
-        bool setEntry( DPN_IO::IOContext *io );
-        bool connect( DPN_IO::IOContext *io );
+        bool setEntry( DPN::IO::IOContext *io );
+        bool connect(DPN::IO::IOContext *io );
         bool propagate();
     private:
         bool diagnostics();

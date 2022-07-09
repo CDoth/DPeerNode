@@ -4,6 +4,111 @@ using namespace DPN::Logs;
 
 namespace DPN::Network {
 
+
+    DPN_Result ProxyPacketFilter::process(DPN_ExpandableBuffer &b) {
+
+        if( b.empty() ) return DPN_SUCCESS;
+
+        if( (size_t)b.size() < sizeof (__packet_header2) ) {
+            DL_ERROR(1, "Bad packet size: [%d]", b.size());
+            return DPN_FAIL;
+        }
+        const __packet_header2 *h = reinterpret_cast<const __packet_header2*>( b.getData() );
+        DL_INFO(1, "header: type: [%s] transaction: [%d]",
+                packetTypeName( h->type ),  h->transaction);
+
+        switch( h->type ) {
+            case PT__MAKE_SHADOW_CONNECTION:
+                DL_WARNING(1, "Need special PT__MAKE_SHADOW_CONNECTION processing code...");
+                return DPN_FAIL;
+            break;
+            default: return DPN_SUCCESS;
+        }
+        return DPN_FAIL;
+    }
+    //======================================================================================= __proxy_node__
+    __proxy_node__::__proxy_node__()
+    {}
+    __proxy_node__::__proxy_node__(Underlayer &ul)
+        : DPN::Client::Underlayer( ul )
+    {}
+    DPN_Result __proxy_node__::connectOne(DPN_NodeConnector *connector, P2PRole p2pRole) {
+
+        switch( p2pRole ) {
+        case DPN::ADAM:
+            if( wAChannel.init( connector, "A2E") == false ) {
+                DL_FUNCFAIL(1, "init (A)");
+                return DPN_FAIL;
+            }
+            wAForward = wAChannel.getMonoIf( DPN::FORWARD );
+            wABack = wAChannel.getMonoIf( DPN::BACKWARD );
+            break;
+        case DPN::EVA:
+            if( wEChannel.init( connector, "E2A") == false ) {
+                DL_FUNCFAIL(1, "init (E)");
+                return DPN_FAIL;
+            }
+            wEForward = wEChannel.getMonoIf( DPN::FORWARD );
+            wEBack = wEChannel.getMonoIf( DPN::BACKWARD );
+            break;
+        }
+        if( wAChannel.isReady() && wEChannel.isReady() ) return DPN_SUCCESS;
+        return DPN_REPEAT;
+    }
+    bool __proxy_node__::start() {
+
+        if( !wAChannel.isReady() || !wEChannel.isReady() ) {
+            DL_ERROR(1, "Channels is not ready");
+            return false;
+        }
+        if( wAForward.badInterface() || wABack.badInterface() || wEForward.badInterface() || wEBack.badInterface() ) {
+            DL_ERROR(1, "Bad channel interface(s)");
+            return false;
+        }
+
+
+        wA2E.data()->setEntry( wABack.io() );
+        wA2E.data()->connect( &wA2EFilter );
+        wA2E.data()->connect( wEForward.io() );
+
+        wE2A.data()->setEntry( wEBack.io() );
+        wE2A.data()->connect( &wE2AFilter );
+        wE2A.data()->connect( wAForward.io() );
+
+        if( putUnit( wA2E.unit() ) == false ) {
+            DL_FUNCFAIL(1, "putUnit (A2E)");
+            return false;
+        }
+        if( putUnit( wE2A.unit() ) == false ) {
+            DL_FUNCFAIL(1, "putUnit (E2A)");
+            return false;
+        }
+
+        return true;
+    }
+    //======================================================================================= ProxyNode
+    ProxyNode::ProxyNode() {}
+    ProxyNode::ProxyNode(Client::Underlayer &ul)
+        : DWatcher< __proxy_node__ >(true, ul)
+    {}
+    DPN_Result ProxyNode::connectOne(DPN_NodeConnector *connector, P2PRole p2pRole) {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "Empty watcher");
+            return DPN_FAIL;
+        }
+        return data()->connectOne( connector, p2pRole );
+    }
+    bool ProxyNode::start() {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "Empty watcher");
+            return false;
+        }
+        return data()->start();
+    }
+    //============================================================================================================== SharedPort
+    SharedPort::SharedPort() {
+        clear();
+    }
     SharedPort::SharedPort(int port, bool autoaccepting) {
         clear();
         iPort = port;
@@ -66,8 +171,7 @@ namespace DPN::Network {
         iConnections = 0;
         iOpened = false;
     }
-
-    //============================================================
+    //============================================================================================================== WaitingConnection
     WaitingConnection::WaitingConnection() {
         pConnector = nullptr;
         iState = WAIT;
@@ -159,12 +263,13 @@ namespace DPN::Network {
     //    DL_INFO(1, "Meet: name: [%s] attach: [%s]", iRemoteName.c_str(), iAttachAddress.name().c_str());
         return DPN_SUCCESS;
     }
-    //============================================================
-    OutgoingConnection::OutgoingConnection(const std::string &localName, const PeerAddress &address) {
+    //============================================================================================================== OutgoingConnection
+    OutgoingConnection::OutgoingConnection(const std::string &localName, const PeerAddress &address, const ConnectionContext &context ) {
         setLocalName( localName );
         iConnectionAddress = address;
         iConnectionAttepmts = 0;
         iConnectionMaximumAttemps = 1;
+        iContext = context;
 
         makeMainLine();
     }
@@ -172,8 +277,6 @@ namespace DPN::Network {
         return iActionLine.go();
     }
     DPN_Result OutgoingConnection::connecting() {
-
-    //    DPN_CALL_LOG;
 
         if( pConnector == nullptr ) {
             pConnector = new DPN_NodeConnector(DXT::TCP);
@@ -185,7 +288,6 @@ namespace DPN::Network {
             return DPN_REPEAT;
         }
         return DPN_FAIL;
-    //    return DPN_SUCCESS;
     }
     DPN_Result OutgoingConnection::waiting(){
 
@@ -242,7 +344,6 @@ namespace DPN::Network {
         }
 
         UNIT_AVATAR = PeerAddress( pConnector->peerPort(), pConnector->peerAddress() );
-        UNIT_VISIBLE = true;
         UNIT_SHADOW_KEY = "xxx outgoing shadowkey xxx";
         UNIT_SESSION_KEY = "xxx outgoing session key xxx";
 
@@ -291,7 +392,7 @@ namespace DPN::Network {
                        ;
         iActionLine.setTarget( this );
     }
-    //===========================================================
+    //============================================================================================================== IncomingConnection
     IncomingConnection::IncomingConnection(const std::string &localName, DPN_NodeConnector *connector) {
         setLocalName( localName );
         makeMainLine();
@@ -396,37 +497,62 @@ namespace DPN::Network {
                        ;
         iActionLine.setTarget( this );
     }
-    OutgoingConnection *createOutgoingConnection(const std::string &localName, const PeerAddress &a) {
-        return new OutgoingConnection( localName, a );
+    OutgoingConnection *createOutgoingConnection(const std::string &localName, const PeerAddress &a, const ConnectionContext &context ) {
+        return new OutgoingConnection( localName, a, context );
     }
     IncomingConnection *createIncomingConnection(const std::string &localName, DPN_NodeConnector *c) {
         return new IncomingConnection( localName, c );
     }
+    //============================================================================================================== ClientCenter
+    __client_center__::__client_center__() :
+        DPN::Client::GlobalUnderlayerSpace(true),
+        DPN::Thread::ThreadUser(true),
+        DPN::Modules(true)
+    {}
+    void __client_center__::setName(const std::string &name) {
 
-    ClientCenterInterface::ClientCenterInterface(bool makeSource) : DWatcher<__client_center__>(makeSource) {}
-    ClientCenterInterface::ClientCenterInterface(ClientCenterInterface &shared) : DWatcher<__client_center__>(shared) {}
+        DPN_THREAD_GUARD( iMutex );
 
-    bool ClientCenterInterface::addClient(DPN_NodeConnector *connector, Thread::ThreadUser &threadUser) {
-        if( isEmptyObject() ) {
-            DL_ERROR(1, "Empty watcher");
+        iName = name;
+    }
+    bool __client_center__::sharePort(int port, bool aa ) {
+
+//        DPN_THREAD_GUARD( iMutex );
+
+        if(!DXT_CHECK_PORT(port)) {
+            DL_BADVALUE(1, "port: [%d]", port);
             return false;
         }
-        DPN_ClientInterface client( threadUser, connector );
-        client.setModules( data()->iModules );
-        data()->remotes.append( client );
+        FOR_VALUE( aSharedPorts.size(), i ) {
+
+            if( aSharedPorts.output()[i].port() == port) {
+                DL_INFO(1, "Port [%d] already processing", port);
+                return true;
+            }
+        }
+
+        aSharedPorts.push_back( DPN::Network::SharedPort( port, aa ) );
         return true;
     }
-    const DArray<DPN_ClientInterface> &ClientCenterInterface::clients() const {
-        return data()->remotes;
+    bool __client_center__::connectTo(const char *address, int port, const ConnectionContext &context ) {
+        return pushOut( address, port, context );
     }
-    WaitingConnectionsProcessor::WaitingConnectionsProcessor(ClientCenterInterface cci, Thread::ThreadUser threadUser)
-        : ClientCenterInterface(cci), DPN::Thread::ThreadUser( threadUser )
-    {
+    void __client_center__::acceptAll() {
+        if(aIncs.output().empty()) {
+            DL_INFO(1, "No incoming connections");
+            return;
+        }
+        FOR_VALUE(aIncs.size(), i) {
+            aIncs.output()[i]->accept();
+        }
     }
+    const DArray<Client::Interface> &__client_center__::remotes() const {
 
-    bool WaitingConnectionsProcessor::work() {
+        DPN_THREAD_GUARD( iMutex );
 
-//        DL_INFO(1, "proc connections... [%p]", this);
+        return aRemotes;
+    }
+    bool __client_center__::work() {
         listenPorts();
 
         aIncs.accept();
@@ -443,82 +569,49 @@ namespace DPN::Network {
                 aOuts.remove( i-- );
             }
         }
+        processEvents();
         return true;
     }
+    bool __client_center__::addVirtualClient(DPN_NodeConnector *connector, const ConnectionContext &context) {
 
-    void WaitingConnectionsProcessor::setName(const std::string &name) {
-        iName = name;
+        ProxyNode pn = context.proxyNode();
+//        switch( pn.connectOne( connector ) ) {
+//        case DPN_SUCCESS:
+//            aProxys.append( pn );
+//            pn.start();
+//            break;
+//        case DPN_REPEAT:
+//            return true;
+//            break;
+//        case DPN_FAIL:
+//            return false;
+//            break;
+//        }
+
+//        GlobalUnderlayerSpace::generateEvent()
     }
-    bool WaitingConnectionsProcessor::sharePort(int port, bool autoaccept) {
-        if(!DXT_CHECK_PORT(port)) {
-            DL_BADVALUE(1, "port: [%d]", port);
-            return false;
-        }
-        FOR_VALUE( aSharedPorts.size(), i ) {
+    bool __client_center__::newClient( DPN_NodeConnector *connector ) {
 
-            if( aSharedPorts.output()[i]->port() == port) {
-                DL_INFO(1, "Port [%d] already processing", port);
+        DPN_THREAD_GUARD( iMutex );
+
+        DPN::Client::Interface client( *this, *this, *this, connector );
+        aRemotes.append( client );
+        DPN::Client::GlobalUnderlayerSpace::addPeerNote( client.peer() );
+        return true;
+    }
+    bool __client_center__::removeClient(Client::Tag tag) {
+
+        DPN_THREAD_GUARD( iMutex );
+
+        FOR_VALUE( aRemotes.size(), i ) {
+            if( aRemotes[i].tag() == tag ) {
+                aRemotes.removeByIndex( i );
                 return true;
             }
         }
-
-        aSharedPorts.push_back(new DPN::Network::SharedPort( port, autoaccept ) );
-        return true;
+        return false;
     }
-    bool WaitingConnectionsProcessor::connectTo(const char *address, int port) {
-        auto out = DPN::Network::createOutgoingConnection( iName, PeerAddress( port, address) );
-        aOuts.push_back( out );
-        return true;
-    }
-    void WaitingConnectionsProcessor::acceptAll() {
-        if(aIncs.output().empty()) {
-            DL_INFO(1, "No incoming connections");
-            return;
-        }
-        FOR_VALUE(aIncs.size(), i) {
-            aIncs.output()[i]->accept();
-        }
-    }
-    bool WaitingConnectionsProcessor::listenPorts() {
-
-        aSharedPorts.accept();
-
-//        DL_INFO(1, "shared ports: [%d]", aSharedPorts.size() );
-
-        FOR_VALUE( aSharedPorts.size(), i) {
-
-            SharedPort *sp = aSharedPorts.output()[i];
-
-            if( sp->open() == false ) {
-                continue;
-            }
-
-            if( sp->newConnection() ) {
-
-                DL_INFO(1, ">>> new incoming connection...");
-                DPN_NodeConnector *connector = sp->accept();
-                if(connector == nullptr) {
-                    DL_ERROR(1, "Can't accept connection");
-                    return false;
-                }
-
-                SharedPort::CheckResult r;
-                if( (r = sp->check(connector)) != SharedPort::CheckedSuccesfull) {
-                    DL_WARNING(1, "Can't accept connection");
-                } else {
-                    pushInc( connector, sp->isAuto() );
-                }
-            }
-        }
-        return true;
-    }
-    void WaitingConnectionsProcessor::pushInc( DPN_NodeConnector *c, bool accept ) {
-        auto inc = createIncomingConnection( iName, c );
-        if( accept ) inc->accept();
-        aIncs.push_back( inc );
-    }
-    bool WaitingConnectionsProcessor::processConnection(WaitingConnection *w) {
-
+    bool __client_center__::processConnection(WaitingConnection *w){
         auto r = w->process();
         if( r == DPN_SUCCESS ) {
 
@@ -526,10 +619,11 @@ namespace DPN::Network {
 
                 if( w->isShadow() ) {
                     DL_INFO(1, "Accept shadow connection");
+                } else if( w->isVirtual() ) {
+                    addVirtualClient( w->connector(), w->context() );
                 } else {
                     DL_INFO(1, "Connection accepted");
-                    ClientCenterInterface::addClient( w->connector(), *this );
-
+                    newClient( w->connector() );
                 }
 
             } else if ( w->state() == DPN::Network::REJECT ) {
@@ -546,6 +640,177 @@ namespace DPN::Network {
         }
         return false;
     }
+    bool __client_center__::listenPorts() {
+
+        aSharedPorts.accept();
+        FOR_VALUE( aSharedPorts.size(), i) {
+
+            SharedPort &sp = aSharedPorts.output()[i];
+
+            if( sp.open() == false ) {
+
+                DL_ERROR(1, "Can't open port");
+                aSharedPorts.remove( i-- );
+                continue;
+            }
+
+            if( sp.newConnection() ) {
+
+                DL_INFO(1, ">>> new incoming connection...");
+                DPN_NodeConnector *connector = sp.accept();
+                if(connector == nullptr) {
+                    DL_ERROR(1, "Can't accept connection");
+                    return false;
+                }
+
+                SharedPort::CheckResult r;
+                if( (r = sp.check(connector)) != SharedPort::CheckedSuccesfull) {
+                    DL_WARNING(1, "Can't accept connection");
+                } else {
+                    pushInc( connector, sp.isAuto() );
+                }
+            }
+        }
+        return true;
+    }
+    bool __client_center__::processEvents() {
+
+        DPN::Client::ClientEvent e = takeLastEvent();
+        if( e.iType == DPN::Client::CL_EV__NO ) return true;
+
+        switch (e.iType) {
+        case DPN::Client::CL_EV__DISCONNECT: {
+            DL_INFO(1,"Disconnect client event: [%p]", e.iTag );
+            removeClient( e.iTag );
+            DPN::Modules::clientDisconnected( e.iTag );
+            break;
+        }
+        default:
+            break;
+        }
+        return true;
+    }
+    bool __client_center__::pushInc(DPN_NodeConnector *c, bool accept) {
+
+//        DPN_THREAD_GUARD( iMutex );
+
+        auto inc = createIncomingConnection( iName, c );
+        if( accept ) inc->accept();
+        aIncs.push_back( inc );
+
+        return true;
+    }
+    bool __client_center__::pushOut(const std::string &address, int port, const ConnectionContext &context ) {
+
+//        DPN_THREAD_GUARD( iMutex );
+
+
+        auto out = DPN::Network::createOutgoingConnection( iName, PeerAddress( port, address), context );
+        aOuts.push_back( out );
+        return true;
+
+    }
+    //============================================================================================================== ClientCenter
+    ClientCenter::ClientCenter(bool makeSource)
+        : dClientCenter(makeSource)
+    {}
+
+    void ClientCenter::setName(const std::string &name) {
+        if( isEmptyObject() ) {
+            DL_ERROR( 1, "Empty watcher");
+            return;
+        }
+        data()->setName( name );
+    }
+    bool ClientCenter::sharePort(int port, bool autoaccept) {
+        if( isEmptyObject() ) {
+            DL_ERROR( 1, "Empty watcher");
+            return false;
+        }
+        return data()->sharePort( port, autoaccept );
+    }
+    bool ClientCenter::connectTo( const PeerAddress &pa ) {
+        if( isEmptyObject() ) {
+            DL_ERROR( 1, "Empty watcher");
+            return false;
+        }
+        ConnectionContext emptyContext;
+        return data()->connectTo( pa.address.c_str(), pa.port, emptyContext );
+    }
+    bool ClientCenter::connectTo(const PeerAddress &pa, const ConnectionContext &context) {
+        if( isEmptyObject() ) {
+            DL_ERROR( 1, "Empty watcher");
+            return false;
+        }
+        return data()->connectTo( pa.address.c_str(), pa.port, context );
+    }
+    void ClientCenter::acceptAll() {
+        if( isEmptyObject() ) {
+            DL_ERROR( 1, "Empty watcher");
+            return;
+        }
+        return data()->acceptAll();
+    }
+    Client::GlobalUnderlayerSpace ClientCenter::globalUnderlayer() {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "Empty watcher");
+            return Client::GlobalUnderlayerSpace();
+        }
+        return *data();
+    }
+    DPN::Modules ClientCenter::modules() {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "Empty watcher");
+            return DPN::Modules();
+        }
+        return *data();
+    }
+    Thread::ThreadUser ClientCenter::threadUser() {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "Empty watcher");
+            return Thread::ThreadUser();
+        }
+        return *data();
+    }
+    Client::Tag ClientCenter::pa2tag(const PeerAddress &pa) const {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "Empty watcher");
+            return nullptr;
+        }
+        const DArray<Client::Interface> rmts = data()->remotes();
+        FOR_VALUE( rmts.size(), i ) {
+            if( rmts[i].peer() == pa ) return rmts[i].tag();
+        }
+        return nullptr;
+    }
+    Client::Interface ClientCenter::tag2client(Client::Tag tag) const {
+        if( isEmptyObject() ) {
+            DL_ERROR(1, "Empty watcher");
+            return DPN::Client::Interface();
+        }
+        const DArray<Client::Interface> rmts = data()->remotes();
+        FOR_VALUE( rmts.size(), i ) {
+            if( rmts[i].tag() == tag ) return rmts[i];
+        }
+        return DPN::Client::Interface();
+    }
+    DArray<Client::Interface> ClientCenter::clients() const {
+
+        if( isEmptyObject() ) {
+            DL_ERROR( 1, "Empty watcher");
+            return DArray<Client::Interface>();
+        }
+        return data()->remotes();
+    }
+
+
+
+
+
+
+
+
+
 
 }
 

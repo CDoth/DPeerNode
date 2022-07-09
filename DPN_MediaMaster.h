@@ -60,13 +60,19 @@ public:
     inline const uint8_t * shotData() const {return pInner->shotData();}
     inline int shotSize() const {return pInner->shotSize();}
 
+    inline const uint8_t * readedData() const { return pInner->readedData(); }
+    inline int readedSize() const { return pInner->readedSize(); }
+
     inline const uint8_t * encodedData() const { return pInner->writtenData(); }
     inline int encodedSize() const { return pInner->writtenSize(); }
     inline void clearEncoded() { pInner->clearWritten(); }
 
     inline bool setEncodedData(const uint8_t *data, int size) { return pInner->setVideoData(data, size); }
     inline bool decode() { return pInner->decode(); }
+
     inline const uint8_t * decodedData() const { return pInner->decodedData(); }
+    inline int decodedSize() const { return pInner->decodedSize(); }
+
 
     inline bool isReady() const { return !(pInner->isEmpty() || pInner->isFault());}
     inline void stop() { pInner->stop(); }
@@ -89,6 +95,7 @@ public:
 private:
     DFFMpeg *pInner;
 };
+
 #else
 
 void dpn_init_media(

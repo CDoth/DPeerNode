@@ -1,6 +1,7 @@
 #include "DPN_NodeConnector.h"
 #include "__dpeernode_global.h"
 
+using namespace DPN::Network;
 using namespace DPN::Logs;
 struct __udp_port {
     __udp_port() : __port(-1), __bound(false) {}

@@ -46,7 +46,7 @@ namespace DPN_FileProcessor {
     private:
         virtual void injection() override;
     protected:
-        DPN_FileSystemPrivateInterface getInterface( const DPN_ClientTag *ct );
+        DPN_FileSystemPrivateInterface getInterface(DPN::Client::Tag ct );
     protected:
         DPN_FileSystem *pFileSystem;
     };
@@ -97,46 +97,13 @@ namespace DPN_FileProcessor {
     private:
         DArray<DFileKey> aKeyset;
         DArray<__file_metadata> aFilesMetaData;
-        DArray<DPN_FILESYSTEM::Interface> aFiles;
+//        DArray<DPN_FILESYSTEM::Interface> aFiles;
     };
 }
 using namespace DPN_FileProcessor;
-DPN_PROCESSOR_BIND(SyncCatalogs, DPN_PACKETTYPE__SYNC_CATALOGS);
-DPN_PROCESSOR_BIND(RequestFile, DPN_PACKETTYPE__REQUEST_FILE);
+DPN_PROCESSOR_BIND(SyncCatalogs, PT__FS__SYNC_CATALOGS);
+DPN_PROCESSOR_BIND(RequestFile, PT__FS__REQUEST_FILE);
 
 
-/*
-
-class DPN_Processor__request_file : public DPN_FileProcessor {
-public:
-    DPN_PROCESSOR;
-private:
-    DPN_Result sendPrefix() override;
-    DPN_Result receiveReaction() override;
-private:
-    DPN_Result failureProcessing() override;
-    bool makeHostLine() override;
-    bool makeServerLine() override;
-private:
-    DPN_Result hostRequest();
-    DPN_Result serverProcess();
-    DPN_Result hostPrepare();
-    DPN_Result serverPrepare();
-    DPN_Result hostStart();
-    DPN_Result serverStart();
-
-private:
-    DPN_Result hostFault();
-    DPN_Result serverFault();
-private:
-private:
-    UNIT(std::string) UNIT_HOST_CATALOG_V = content;
-    UNIT(DArray<__file_metadata>) UNIT_FILESET = content;
-
-private:
-    DArray<DFileKey> aKeyset;
-    DArray<__file_metadata> aFilesMetaData;
-};
-*/
 
 #endif // DPN_FILESYSTEMPROCESSORS_H

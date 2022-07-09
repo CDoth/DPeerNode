@@ -6,7 +6,7 @@
 
 #include <DPN_Buffers.h>
 
-namespace DPN_IO {
+namespace DPN::IO {
 
 typedef bool (*GenerativeCallback)(void *base, DPN_ExpandableBuffer &emptyBuffer);
 typedef bool (*TargetCallback)(void *base, const void *data, int size);

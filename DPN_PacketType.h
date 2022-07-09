@@ -2,58 +2,31 @@
 #define DPN_PACKETTYPE_H
 #include "__dpeernode_global.h"
 
-// - Remote side create keyset for request and send it to host
-
-// - Host check all keys from keyset and create file group with available files
-
-// - Host send [DPN_PACKETTYPE__FILE_TRANSMIT_PREPARE] for each file from group
-//   and place group-processor in send queue. On begin all file transports is not
-//   available and group-processor just skip all transports.
-
-// - Remote side prepare all files and send [DPN_PACKETTYPE__FILE_RECEIVE_READY_ANSWER]
-//   for each file to host.
-
-// - If [DPN_PACKETTYPE__FILE_RECEIVE_READY_ANSWER] for file is true - activate its transport
-//   (which already in group). After this action - group-processor will not ingore and skip
-//   this transport.
-// - If [DPN_PACKETTYPE__FILE_RECEIVE_READY_ANSWER] for file if false - deactivate its transport.
-//   Remove it from send map and group
-
-enum DPN_PacketType {
-    DPN_PACKETTYPE__NO_TYPE = 0
-
-
+enum PacketType {
+    PT__NO_TYPE = 0
+    //-------------------------------- Default
+    ,PT__TEXT_MESSAGE
+    ,PT__MAKE_SHADOW_CONNECTION
+    ,PT__SYNC_CHANNEL
+    ,PT__RESERVE_CHANNEL
+    //-------------------------------- Chat
+    ,PT__CHAT__MESSAGE
+    //-------------------------------- File System
+    ,PT__FS__SYNC_CATALOGS
+    ,PT__FS__REGISTER_FAST_FILE
+    ,PT__FS__REQUEST_FILE
+    //-------------------------------- Network
+    ,PT__NW__PING
+    ,PT__NW__LOCAL_ENVIRONMENT
+    ,PT__NW__FORWARDING
+    ,PT__NW__SERVER_OPENER
     //--------------------------------
-    ,DPN_PACKETTYPE__TEXT_MESSAGE
-    ,DPN_PACKETTYPE__MAKE_SHADOW_CONNECTION
-    ,DPN_PACKETTYPE__SYNC_CHANNEL
-    ,DPN_PACKETTYPE__RESERVE_CHANNEL
-    //--------------------------------
-
-    ,DPN_PACKETTYPE__SYNC_CATALOGS
-    ,DPN_PACKETTYPE__REGISTER_FAST_FILE
-    //--------------------------------
-
-    /// Remote node request file or file set from host catalog:
-    ,DPN_PACKETTYPE__REQUEST_FILE
-
-    /// Transmit file data:
-    ,DPN_PACKETTYPE__FILE_PACKET
-    //--------------------------------
-    ,DPN_PACKETTYPE__MEDIA_ANSWER
-    ,DPN_PACKETTYPE__MEDIA_STREAM_PREPARE
-    //--------------------------------
-    ,DPN_PACKETTYPE__PING
-    ,DPN_PACKETTYPE__LOCAL_ENVIRONMENT
-    //--------------------------------
-
-
-    //--------------------------------
-    ,DPN_PACKETTYPE__INVALID_TYPE
-
+    ,PT__INVALID_TYPE
 };
-uint32_t packetMaxSize(DPN_PacketType);
-bool packetSupportEmptySize(DPN_PacketType);
-const char * packetTypeName(DPN_PacketType);
+
+
+uint32_t packetMaxSize( PacketType );
+bool packetSupportEmptySize(PacketType);
+const char * packetTypeName(PacketType);
 
 #endif // DPN_PACKETTYPE_H

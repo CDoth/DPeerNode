@@ -1,6 +1,6 @@
 #include "DPN_IO.h"
 
-namespace DPN_IO {
+namespace DPN::IO {
     IOContext::IOContext() { }
     IOContext::~IOContext() { }
     DPN_Result IOContext::generate(DPN_ExpandableBuffer&) { return DPN_SUCCESS; }

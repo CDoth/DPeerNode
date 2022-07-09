@@ -1,6 +1,7 @@
 #ifndef DPN_UTIL_H
 #define DPN_UTIL_H
 
+#include <mutex>
 
 #include "__dpeernode_global.h"
 namespace DPN::Util {
@@ -25,17 +26,16 @@ namespace DPN::Util {
 
     template <class T>
     struct ListNode {
-        ListNode( T *object = nullptr ) :
-            pObject(object), pPrev(nullptr), pNext(nullptr)
+        ListNode(  ) :
+            pPrev(nullptr), pNext(nullptr)
         {}
-        inline void set( T *o) { pObject = o; }
+        inline void set( const T &o ) { tObject = o; }
         inline void exclude() {
             if( pPrev ) pPrev->pNext = pNext;
             if( pNext ) pNext->pPrev = pPrev;
 
             pPrev = nullptr;
             pNext = nullptr;
-            pObject = nullptr;
         }
         inline void connect( ListNode *n ) {
             pNext = n;
@@ -43,25 +43,25 @@ namespace DPN::Util {
         }
         inline ListNode * prev() { return pPrev; }
         inline ListNode * next() { return pNext; }
-        inline T * object() { return pObject; }
-        inline const T * object() const { return pObject; }
+        inline T &object() { return tObject; }
+        inline const T &object() const { return tObject; }
 
     private:
-        T *pObject;
+        T tObject;
         ListNode *pPrev;
         ListNode *pNext;
     };
 
     template <class T>
-    class ThreadSafeList {
+    class _ThreadSafeList {
     public:
-        ThreadSafeList() {
+        _ThreadSafeList() {
             pFirst = nullptr;
             pHead = nullptr;
             iSize = 0;
         }
     public:
-        void push_back( T *o ) {
+        void push_back( const T &o ) {
 
             DPN_THREAD_GUARD( iMutex );
 
@@ -77,25 +77,26 @@ namespace DPN::Util {
             DPN_THREAD_GUARD( iMutex );
             innerPopBack();
         }
-        T * last() {
+        T & last() {
             if( pHead == nullptr ) return nullptr;
 
             DPN_THREAD_GUARD( iMutex );
 
             return pHead->object();
         }
-        const T * last() const {
+        const T & last() const {
             if( pHead == nullptr ) return nullptr;
 
             DPN_THREAD_GUARD( iMutex );
 
             return pHead->object();
         }
-        T * takeLast() {
-            if( pHead == nullptr ) return nullptr;
+        T takeLast() {
+
+            if( pHead == nullptr ) return T();
 
             DPN_THREAD_GUARD( iMutex );
-            T *o = pHead->object();
+            T &o = pHead->object();
             innerPopBack();
             return o;
         }
@@ -110,13 +111,13 @@ namespace DPN::Util {
             }
             zero();
         }
-        void moveTo( ThreadSafeList &list ) {
+        void moveTo( _ThreadSafeList &list ) {
 
             DPN_THREAD_GUARD2( iMutex );
             DPN_THREAD_GUARD( list.iMutex );
 
             if( list.pFirst == nullptr ) {
-                list.pFirst = pFirst;
+                list.pFirst.store(pFirst.load());
                 list.pHead = pHead;
             } else {
                 list.pHead->connect( pFirst );
@@ -126,7 +127,7 @@ namespace DPN::Util {
 
             zero();
         }
-        void moveTo( DArray<T*> &array ) {
+        void moveTo( DArray<T> &array ) {
 
             DPN_THREAD_GUARD( iMutex );
 //            using namespace DPN::Logs;
@@ -157,7 +158,7 @@ namespace DPN::Util {
             pHead = nullptr;
             iSize = 0;
         }
-        inline ListNode<T> * getNode( T *o ) {
+        inline ListNode<T> * getNode( const T &o ) {
 
             ListNode<T> *n = iNodePool.get();
             n->set( o );
@@ -171,16 +172,16 @@ namespace DPN::Util {
         }
     private:
         int iSize;
-        std::mutex iMutex;
+        mutable std::mutex iMutex;
         std::atomic<ListNode<T>*> pFirst;
         ListNode<T> *pHead;
         SimplePool<ListNode<T>> iNodePool;
     };
 
     template <class T>
-    class ThreadSafeQueue {
+    class _ThreadSafeQueue {
     public:
-        inline void push_back( T *o ) { iInput.push_back( o ); }
+        inline void push_back( const T &o ) { iInput.push_back( o ); }
     public:
         void accept() {
 //            using namespace DPN::Logs;
@@ -196,11 +197,46 @@ namespace DPN::Util {
         inline void remove( int i ) {
             iOutput.removeByIndex( i );
         }
-        const DArray<T*> & output() const { return iOutput; }
+
+        DArray<T> & output() {
+//            accept();
+            return iOutput;
+        }
+        const DArray<T> & constOutput() const { return iOutput; }
     private:
-        ThreadSafeList<T> iInput;
-        DArray<T*> iOutput;
+        _ThreadSafeList<T> iInput;
+        DArray<T> iOutput;
     };
+
+    template <class T>
+    class _ThreadSafeQueue2 {
+    public:
+        void push_back( const T &o ) {
+            iInput.push_back( o );
+        }
+
+        void accept() {
+            if( !iInput.empty() ) {
+                iInput.moveTo( iOutput );
+            }
+        }
+        inline int inputSize() const { return iInput.size(); }
+        inline int outputSize() const { return iOutput.size(); }
+
+        _ThreadSafeList<T> & output() {
+            accept();
+            return iOutput;
+        }
+        const _ThreadSafeList<T> & constOutput() const { return iOutput; }
+    private:
+        _ThreadSafeList<T> iInput;
+        _ThreadSafeList<T> iOutput;
+    };
+
+    //-----------------------------
+
+
+
 
     template <class T>
     class Action {

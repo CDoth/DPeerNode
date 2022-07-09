@@ -4,9 +4,6 @@ using namespace DPN::Logs;
 MonoChannel::MonoChannel() {
 
 }
-bool MonoChannel::reserve(DPN_AbstractModule *module, const DPN_ExpandableBuffer &context) {
-
-}
 IO__CHANNEL::IO__CHANNEL(DPN_NodeConnector *c)  {
     pConnector = c;
 }
@@ -134,6 +131,7 @@ __channel_data::__channel_data() {
 //    pForward = nullptr;
 //    pBackward = nullptr;
     pChannel = nullptr;
+    DL_INFO(1, "Create inner __channel_data: [%p]", this );
 }
 __channel_data::~__channel_data() {
 //    if( !pForward ) delete pForward;
@@ -145,28 +143,51 @@ bool __channel_data::init(DPN_NodeConnector *c, const std::string &shadowKey) {
         DL_WARNING(1, "inited");
         return false;
     }
+    if( c == nullptr || shadowKey.empty() ) {
+        DL_BADVALUE(1, "connector: [%p] shadow key size: [%d]", c, shadowKey.size() );
+        return false;
+    }
     iKey = shadowKey;
     pChannel = new IO__CHANNEL( c );
     return true;
 }
-__channel::__channel() : DWatcher<__channel_data>(true) { }
+
+__channel::__channel()
+    : DPN::Interface::DataReference<__channel_data>(true)
+{}
+bool __channel::isReady() const {
+    if( isEmptyObject() ) {
+        DL_ERROR(1, "Empty watcher");
+        return false;
+    }
+    return data()->inited();
+}
 bool __channel::init(DPN_NodeConnector *c, const std::string &shadowKey) {
+
+    if( isEmptyObject() ) {
+        DL_ERROR(1, "Empty watcher");
+        return false;
+    }
     return data()->init( c, shadowKey );
 }
 
 __channel_mono_interface __channel::getMonoIf(DPN::Direction d) {
     __channel_mono_interface i;
-    DL_INFO(1, "Try get interface [%d]", d);
-     DPN::MappedInterface<DPN::Direction, __channel_data> w = monoIf.get( d, *this );
-     DL_INFO(1, "got interface for key: [%d] valid: [%d]", d, w.validInterface());
-     i.move( w );
-     return i;
+
+    DL_INFO(1, "Try get interface direction: [%d] empty watcher: [%d] data: [%p]",
+            d, isEmptyObject(), data() );
+
+    DPN::Interface::InterfaceReference ir = wMonoInterfaces.getInterface( d, *this );
+    i.copy( ir );
+    return i;
 }
 __channel_private_interface __channel::privateInterface() {
     __channel_private_interface i;
-    auto w = privateIf.get( *this );
-    i.move( w );
+
+    DPN::Interface::InterfaceReference ir = wPrivateInterface.getInterface( *this );
+    i.copy( ir );
     return i;
+
 }
 MonoChannelState __channel::localState(DPN::Direction d) const {
     if( isEmptyObject() ) {
@@ -191,9 +212,6 @@ std::string __channel::shadowKey() const {
     }
     return data()->iKey;
 }
-
-
-
 void __channel_private_interface::setLocalState(DPN::Direction d, MonoChannelState s) {
     if( badInterface() ) {
         DL_ERROR(1, "Bad interface");
@@ -208,3 +226,16 @@ void __channel_private_interface::setRemoteState(DPN::Direction d, MonoChannelSt
     }
     d == DPN::FORWARD ? inner()->iForward.iLocalState = s : inner()->iBackward.iLocalState = s;
 }
+
+DPN::IO::IOContext *__channel_mono_interface::io(){
+    if( inner() == nullptr ) {
+        DL_BADPOINTER(1, "inner");
+        return nullptr;
+    }
+    if( badInterface() ) {
+        DL_ERROR(1, "Bad interface");
+        return nullptr;
+    }
+    return badInterface() ? nullptr : inner()->pChannel;
+}
+

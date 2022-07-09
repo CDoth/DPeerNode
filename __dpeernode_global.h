@@ -49,6 +49,7 @@
 
 namespace DPN {
 
+    namespace IO {}
     namespace Logs {}
     namespace Util {}
     namespace Thread {}
@@ -56,6 +57,13 @@ namespace DPN {
     namespace Time {}
     namespace Client {}
     namespace Channel {}
+    namespace Interface {}
+    namespace Crypto {}
+    //--------------------- modules
+    namespace FileSystem {}
+    namespace MediaSystem {}
+    namespace Chat {}
+
 }
 
 namespace DPN {
@@ -63,6 +71,13 @@ namespace DPN {
     enum Direction {
         FORWARD
         ,BACKWARD
+    };
+    enum Side {
+        LOCAL
+        ,PEER
+    };
+    enum P2PRole {
+        ADAM, EVA
     };
 
     template <class FlagType> static void setFlag(FlagType &to, uint64_t f) { to |=  f; }
@@ -232,112 +247,7 @@ namespace DPN::Network {
         std::string address;
     };
 }
-namespace DPN {
 
-    //----------------------------------------------
-    template <class Q> class InterfaceMaster;
-    template <class T>
-    class Interface : private DWatcher<T> {
-    public:
-        Interface() {}
-
-        Interface( DWatcher<T> &w, InterfaceMaster<T> *parent) {
-            pParent = parent;
-            this->copy( w );
-        }
-        void move( Interface &o ) {
-            pParent = o.pParent;
-            this->moveFrom( o );
-            o.pParent = nullptr;
-        }
-        inline bool validInterface() const {return this->isCreatedObject();}
-        inline bool badInterface() const {return this->isEmptyObject();}
-        ~Interface() {close();}
-        void close();
-    protected:
-        inline T * inner() {return this->data();}
-    private:
-        InterfaceMaster<T> *pParent;
-    };
-    template <class T>
-    class InterfaceMaster {
-    public:
-
-        Interface<T> get( DWatcher<T> &w ) {
-
-            if( iUsing ) return Interface<T>();
-            iUsing = true;
-            return Interface<T>( w, this );
-
-        }
-        void close() {
-            iUsing = false;
-        }
-    private:
-        bool iUsing;
-    };
-    template <class T> void Interface<T>::close() {
-        if( pParent) pParent->close();
-    }
-    //----------------------------------------------
-    template <class t1, class t2> class MappedInterfaceMaster;
-    template < class Key, class I >
-    class MappedInterface : private DWatcher<I> {
-    public:
-        MappedInterface() {
-            pParent = nullptr;
-        }
-        MappedInterface( DWatcher<I> &w, const Key &key, MappedInterfaceMaster<Key, I> *parent) {
-            pParent = parent;
-            iKey = key;
-            this->copy( w );
-        }
-        void move( MappedInterface &o ) {
-            pParent = o.pParent;
-            iKey = o.iKey;
-            this->moveFrom( o );
-            o.pParent = nullptr;
-        }
-
-        inline Key & key() { return iKey; }
-
-
-    public:
-        inline bool validInterface() const {return this->isCreatedObject();}
-        inline bool badInterface() const {return this->isEmptyObject();}
-        ~MappedInterface() { if( this->isCreatedObject() ) close(); }
-        void close();
-
-    protected:
-        inline I * inner() {return this->data();}
-        inline const I * inner() const { return this->data(); }
-    private:
-        MappedInterfaceMaster<Key, I> *pParent;
-        Key iKey;
-    };
-    template < class Key, class I >
-    class MappedInterfaceMaster {
-    public:
-        MappedInterface<Key, I> get( const Key &k, DWatcher<I> &w ) {
-
-            if( iMap.find( k ) == iMap.end() ) iMap[k] = false;
-            bool &u = iMap[k];
-            if( u ) return MappedInterface<Key, I>();
-            u = true;
-            return MappedInterface<Key, I>( w, k, this );
-        }
-        void close( const Key &k ) {
-            auto f = iMap.find( k );
-            if( f != iMap.end() ) f->second = false;
-        }
-    private:
-        std::map<Key, bool> iMap;
-    };
-    template <class K, class T> void MappedInterface<K, T>::close() {
-        if( pParent) pParent->close( iKey );
-    }
-
-}
 
 enum DPN_Result {
     DPN_FAIL = 0,
@@ -356,45 +266,16 @@ enum IOBehaivor {
     DEF_FLAG(IO_SPECIFIC, 7),
     DEF_FLAG(IO_INNER, 8)
 };
-struct ActionState {
-    enum {
-        Empty,
-        Requesting,
-        Ready,
-        Fail
-    } iS;
-};
-template <class TagType>
-class DPN_StateManager {
-public:
-    ActionState & state(TagType tag) {
-        auto f = iStateMap.find(tag);
-        if( f == iStateMap.end() ) {
-            iStateMap[tag] = ActionState();
-        }
-        return iStateMap[tag];
-    }
-private:
-    std::map<TagType, ActionState> iStateMap;
-};
+
 //======================================
 class __channel_mono_interface;
 class DPN_ExpandableBuffer;
-class DPN_ClientTag;
-class DPN_AbstractModule {
-public:
-    DPN_AbstractModule(const std::string &name) : iModuleName(name) {}
-    virtual ~DPN_AbstractModule() {}
-    virtual void stop() {};
-    virtual bool useChannel( const DPN_ClientTag *tag, DPN::Direction d, __channel_mono_interface mono, const DPN_ExpandableBuffer &context ) = 0;
-
-
-    const std::string & name() const {return iModuleName;}
-private:
-    std::string iModuleName;
-};
-//=====================================
-class DPN_ClientTag {};
-//=====================================
+namespace DPN::Client {
+    typedef const void* Tag;
+    class Core;
+}
+namespace DPN::Network {
+    class ClientCenter;
+}
 int pointerValue(const void *ptr);
 #endif // __DPEERNODE_GLOBAL_H
